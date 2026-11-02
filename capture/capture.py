@@ -1002,6 +1002,9 @@ def capture_screenshots(
     written: list[dict[str, Any]] = []
     default_themes = scenes.get("themes", ["light", "dark"])
     forbidden = list(DEFAULT_FORBIDDEN_TEXT) + list(scenes.get("forbid_text", []))
+    # The session the first sign-in got. A later theme's context reuses it: a
+    # long live pass can outlast the gateway's one-time sign-in token.
+    session_cookies: list[Any] = []
     for theme in ("light", "dark"):
         shots = [
             s for s in scenes["screenshots"]
@@ -1011,7 +1014,17 @@ def capture_screenshots(
             continue
         context = new_context(browser, scenes, theme)
         try:
-            page = sign_in(context, gateway)
+            if session_cookies:
+                context.add_cookies(session_cookies)
+                page = context.new_page()
+                page.goto(f"{gateway.base_url}/", wait_until="load", timeout=60_000)
+                # The dashboard may route itself once on load; let it finish
+                # before the theme call evaluates in the page.
+                page.wait_for_load_state("networkidle", timeout=60_000)
+                settle(page, scenes.get("ready"), 400)
+            else:
+                page = sign_in(context, gateway)
+                session_cookies = context.cookies()
             apply_theme(page, scenes, theme)
             for index, shot in enumerate(shots):
                 where = f"{shot['name']} ({theme})"
