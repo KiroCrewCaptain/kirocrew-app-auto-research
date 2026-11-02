@@ -277,8 +277,10 @@
         "click": "role=button[name='Next →']"
       },
       {
-        "select": "role=combobox[name='Idle between cycles']",
-        "value": "30"
+        "click": "role=combobox[name='Idle between cycles']"
+      },
+      {
+        "click": "role=option[name='30s']"
       },
       {
         "type": "role=textbox[name='Definition of Done (optional)']",
