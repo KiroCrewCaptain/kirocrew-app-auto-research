@@ -1,10 +1,10 @@
 {
   "app": "auto-research",
-  "captured_at": "2026-11-02T17:43:26Z",
-  "app_commit": "9a8af24698489ab2ac0b00f0aa642b6d6283f33c",
+  "captured_at": "2026-11-02T18:17:02Z",
+  "app_commit": "15be3c7f57440df28015441ffab1117d1a60315e",
   "kirocrew_commit": "99161724c0ffcb0af7fd64055e1f22bdde7476b3",
   "kirocrew_tree_dirty": true,
-  "gateway": "isolated temporary home, approval=reads; a freshly seeded gateway for the stub screenshots, one for the live ones and one for the walkthrough",
+  "gateway": "isolated temporary home, approval=reads; a freshly seeded gateway for the stub screenshots and one for the walkthrough, whose live run the live screenshots were then taken on",
   "data": "fictional, seeded through the app's HTTP API (capture/scenes.json)",
   "agent_backend": {
     "live": [
@@ -19,7 +19,8 @@
   },
   "note": "The isolated gateway served this repository's own copy of the app: capture.py's setup installed it from this checkout (POST /api/apps/install), trusted it and enabled it, and every picture shows its committed bundle (ui/dist/index.mjs) and backend. Kiro Crew still ships a built-in auto-research and refuses a second install under the same name, so the Kiro Crew tree the capture ran on is the App Kit level-1 commit with only the built-in's registration removed (its app.json, its package entry and its BUILTIN_NAMES row; its Python files stay because the gateway imports one of them at boot); kirocrew_tree_dirty records that.",
   "data_notes": [
-    "The campaigns, their questions and sub-questions are made up for this README and were created through the app's own API (capture/scenes.json setup); the research itself, its findings and its report were written by the live research agent during the capture.",
+    "The campaigns, their questions and sub-questions are made up for this README. The WAL campaign was created and started through the app's page during the recorded walkthrough, and the saved gardening campaign through the app's own API (capture/scenes.json setup) afterwards; the research itself, its findings and its report were written by the live research agent during the capture.",
+    "The live stills (hero, use-case-findings, use-case-report) were taken on the walkthrough's own gateway after it was recorded (live_stills_from_walkthrough), so they show the same campaign run, findings and report as the recording.",
     "Campaign times and cycle counts are the gateway's own clock during the capture.",
     "The Grill me planner is not used in these pictures: on the capture gateway the host's LLM pool refused to start its worker (it could not confirm the knowledge agent's tool ban), so the sub-questions were typed by hand. The research agent itself ran on the live model."
   ],
@@ -33,34 +34,34 @@
       "file": "hero-dark.png",
       "name": "hero",
       "theme": "dark",
-      "bytes": 152259,
+      "bytes": 152076,
       "width": 1600,
       "height": 1000,
-      "alt": "The Research Lab page in Kiro Crew: a + New Campaign button, the research-only note, and a History list with a finished campaign (Done, 3 cycles) on SQLite's WAL mode versus its rollback journal and a saved campaign that has not started yet (Ready) on saving water in a dry summer"
+      "alt": "The Research Lab page in Kiro Crew: a + New Campaign button, the research-only note, and a History list with a saved campaign that has not started yet (Ready, 0 cycles) on saving water in a dry summer and a finished campaign (Done, 1 cycle) on SQLite's WAL mode versus its rollback journal"
     },
     {
       "file": "hero-light.png",
       "name": "hero",
       "theme": "light",
-      "bytes": 142208,
+      "bytes": 140918,
       "width": 1600,
       "height": 1000,
-      "alt": "The Research Lab page in Kiro Crew: a + New Campaign button, the research-only note, and a History list with a finished campaign (Done, 3 cycles) on SQLite's WAL mode versus its rollback journal and a saved campaign that has not started yet (Ready) on saving water in a dry summer"
+      "alt": "The Research Lab page in Kiro Crew: a + New Campaign button, the research-only note, and a History list with a saved campaign that has not started yet (Ready, 0 cycles) on saving water in a dry summer and a finished campaign (Done, 1 cycle) on SQLite's WAL mode versus its rollback journal"
     },
     {
       "file": "use-case-findings-light.png",
       "name": "use-case-findings",
       "theme": "light",
-      "bytes": 252593,
+      "bytes": 178256,
       "width": 1600,
       "height": 1000,
-      "alt": "A finished campaign on SQLite's WAL mode versus its rollback journal at cycle 3 of 5 with three findings, each showing its cycle, evidence strength and goal status: cycle 0 says crash safety is equal in both modes, cycle 1 that pure reads are roughly a tie, and cycle 2, marked Goal met, that WAL with synchronous=NORMAL is the documented sweet spot. Above them, Continue Research offers Fork & Challenge, Add to Knowledge and Export as Artifact"
+      "alt": "A finished campaign on SQLite's WAL mode versus its rollback journal that met its goal in its first cycle (Cycle 1/4, one finding): the cycle 0 finding, evidence Moderate and marked Goal met, says crash safety is equal in both modes, that WAL with synchronous=NORMAL can lose the last few commits on power loss but not corrupt the file, and that for mostly-read use the read speed difference is about 1-2% in the rollback journal's favour. Above it, Continue Research offers Fork & Challenge, Add to Knowledge and Export as Artifact"
     },
     {
       "file": "use-case-plan-light.png",
       "name": "use-case-plan",
       "theme": "light",
-      "bytes": 212477,
+      "bytes": 212458,
       "width": 1600,
       "height": 1000,
       "alt": "The New Campaign form, step 1 of 3: Agent mode chosen, the question How should a two-person bakery plan oven time when weekend orders double? typed in, and two sub-questions added by hand, which bakes can share one oven temperature and how much can be baked the evening before"
@@ -69,28 +70,27 @@
       "file": "use-case-report-light.png",
       "name": "use-case-report",
       "theme": "light",
-      "bytes": 400680,
+      "bytes": 398080,
       "width": 1600,
       "height": 1000,
-      "alt": "The same campaign with its report open under the findings: a title, a Research State section listing what is answered, the weak spots and the open leads, and a Cycle 0 section on a crash mid-write that cites the SQLite Write-Ahead Logging page, each section with its own Copy button"
+      "alt": "The same campaign with its report open under the finding: a Findings title, a preliminary Recommendation to use WAL with synchronous=NORMAL unless the database file is a user-facing document, and a Cycle 0 section on the official WAL documentation that cites the SQLite Write-Ahead Logging page and covers a crash mid-write and read-mostly speed, each section with its own Copy button"
     }
   ],
   "walkthrough": {
     "shortened_waits_s": [
-      61.4,
-      160.6
+      65.8
     ],
     "mp4": {
       "file": "walkthrough.mp4",
-      "bytes": 601798
+      "bytes": 651219
     },
     "gif": {
       "file": "walkthrough.gif",
-      "bytes": 3887863,
+      "bytes": 2690511,
       "width": 960,
       "fps": 10
     },
     "theme": "light",
-    "alt": "A walkthrough of Research Lab: starting a campaign on SQLite's WAL mode versus its rollback journal with two typed sub-questions, a 30-second wait between cycles, a definition of done and unattended mode; the first finding arriving while the campaign runs; the campaign finishing with three findings; and its report opening"
+    "alt": "A walkthrough of Research Lab: starting a campaign on SQLite's WAL mode versus its rollback journal with two typed sub-questions, a 30-second wait between cycles, a definition of done and unattended mode; the campaign running; its first finding arriving and meeting the goal, so the campaign stops itself after one cycle; and its report opening"
   }
 }

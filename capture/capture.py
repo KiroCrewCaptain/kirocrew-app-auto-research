@@ -1257,6 +1257,10 @@ def main(argv: list[str]) -> int:
                             ctx.add_cookies(session)
                             page = ctx.new_page()
                             page.goto(f"{gw.base_url}/", wait_until="load", timeout=60_000)
+                            # The dashboard may route itself once on load; a
+                            # fetch evaluated mid-navigation fails.
+                            page.wait_for_load_state("networkidle", timeout=60_000)
+                            settle(page, scenes.get("ready"), 400)
                             variables.update(
                                 run_setup(page, scenes, app_root, "after-walkthrough", True)
                             )
