@@ -169,7 +169,7 @@
           "click": "text=SQLite's WAL mode >> nth=0"
         },
         {
-          "wait_for": "role=button[name=/Continue Research/]",
+          "wait_for": "text=Continue Research",
           "timeout_ms": 1500000
         },
         {
@@ -193,17 +193,17 @@
           "click": "text=SQLite's WAL mode >> nth=0"
         },
         {
-          "wait_for": "role=button[name=/Continue Research/]",
+          "wait_for": "text=Continue Research",
           "timeout_ms": 1500000
         },
         {
-          "click": "role=button[name=/View report/]"
+          "click": "role=button[name='View report']"
         },
         {
-          "wait_for": "role=button[name=/Hide report/]"
+          "wait_for": "role=button[name='Hide report']"
         },
         {
-          "scroll": "role=button[name=/Hide report/]"
+          "scroll": "role=button[name='Hide report']"
         },
         {
           "mouse_park": [
@@ -333,7 +333,7 @@
         "caption": ""
       },
       {
-        "wait_for": "role=button[name=/Continue Research/]",
+        "wait_for": "text=Continue Research",
         "timeout_ms": 1500000,
         "cut": true
       },
@@ -348,13 +348,13 @@
         "caption": ""
       },
       {
-        "click": "role=button[name=/View report/]"
+        "click": "role=button[name='View report']"
       },
       {
-        "wait_for": "role=button[name=/Hide report/]"
+        "wait_for": "role=button[name='Hide report']"
       },
       {
-        "scroll": "role=button[name=/Hide report/]"
+        "scroll": "role=button[name='Hide report']"
       },
       {
         "wait_ms": 3000
