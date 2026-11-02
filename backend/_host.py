@@ -15,7 +15,11 @@ three kinds of host surface:
    slots through the host's autonudge loops, starts Dynamic Workflow runs,
    ingests its report into the Knowledge Library and publishes an artifact.
    None of that has a public seam, so it is resolved from the running gateway
-   here, lazily and by name (:func:`_host_attr`), at the moment it is needed.
+   here by name through :func:`_host_attr` (``importlib``). Services and
+   functions are looked up when an operation calls for them; the AutoNudge
+   stop-reason constants, ``LLMPool``, ``ArtifactStore``, the two exception
+   types and ``OnLoopDBGuard`` are looked up once, when this module is
+   imported, each with a fallback (``None``, a stand-in class or a literal).
    When the gateway does not provide one, the operation that needs it is
    REFUSED with a reason the page shows, never run some other way, and
    ``register_routes`` reports the reason through ``ctx.health``.
@@ -29,7 +33,8 @@ three kinds of host surface:
    used.
 
 Nothing else in ``backend/`` names ``kiro_crew`` (``tests/test_no_host_imports.py``
-pins that), and this module has no top-level ``kiro_crew`` import.
+pins that), and this module has no ``import kiro_crew`` statement: every host
+name goes through :func:`_host_attr`, so a missing one never breaks the load.
 """
 
 from __future__ import annotations

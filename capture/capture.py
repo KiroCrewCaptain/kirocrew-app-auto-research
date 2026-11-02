@@ -631,7 +631,8 @@ def api_call(page: Any, method: str, path: str, body: Any) -> tuple[int, Any]:
 
 
 def run_setup(
-    page: Any, scenes: dict[str, Any], app_root: Path, gateway_pass: str = ""
+    page: Any, scenes: dict[str, Any], app_root: Path, gateway_pass: str = "",
+    marked_only: bool = False,
 ) -> dict[str, Any]:
     # ``{{app_root}}``: this repository's root, for a setup step that installs
     # the app from source (``POST /api/apps/install {"source": "{{app_root}}"}``).
@@ -640,7 +641,11 @@ def run_setup(
         # ``"passes"``: run this step only on the named gateways
         # (``screenshots``, ``screenshots-live``, ``walkthrough``), e.g. to start
         # work a live agent picks up without starting it on the stub.
+        # ``marked_only``: a second round on a gateway already seeded runs only
+        # the steps that name this pass (``after-walkthrough``).
         if "passes" in step and gateway_pass not in step["passes"]:
+            continue
+        if marked_only and "passes" not in step:
             continue
         if "wait_ms" in step:
             # Rows the app timestamps to the second need a gap to sort predictably.
@@ -998,13 +1003,15 @@ def _no_usage_reading(route: Any) -> None:
 def capture_screenshots(
     browser: Any, gateway: Gateway, scenes: dict[str, Any], variables: dict[str, Any],
     out_dir: Path, scratch: Path, ffmpeg_bin: str, only: set[str] | None,
+    session_cookies: list[Any] | None = None,
 ) -> list[dict[str, Any]]:
     written: list[dict[str, Any]] = []
     default_themes = scenes.get("themes", ["light", "dark"])
     forbidden = list(DEFAULT_FORBIDDEN_TEXT) + list(scenes.get("forbid_text", []))
-    # The session the first sign-in got. A later theme's context reuses it: a
-    # long live pass can outlast the gateway's one-time sign-in token.
-    session_cookies: list[Any] = []
+    # The session the first sign-in got (or the caller's). A later theme's
+    # context reuses it: a long live pass can outlast the gateway's one-time
+    # sign-in token.
+    session_cookies = list(session_cookies or [])
     for theme in ("light", "dark"):
         shots = [
             s for s in scenes["screenshots"]
@@ -1060,8 +1067,9 @@ def capture_screenshots(
 
 def capture_walkthrough(
     browser: Any, gateway: Gateway, scenes: dict[str, Any], variables: dict[str, Any],
-    out_dir: Path, scratch: Path, ffmpeg_bin: str,
+    out_dir: Path, scratch: Path, ffmpeg_bin: str, session_out: list[Any] | None = None,
 ) -> dict[str, Any] | None:
+    """Record the walkthrough. ``session_out`` receives the signed-in cookies."""
     walk = scenes.get("walkthrough")
     if not walk:
         return None
@@ -1074,6 +1082,8 @@ def capture_walkthrough(
     try:
         apply_theme(sign_in(login, gateway), scenes, theme)
         state = login.storage_state()
+        if session_out is not None:
+            session_out.extend(login.cookies())
     finally:
         login.close()
     video_dir = scratch / "video"
@@ -1154,6 +1164,20 @@ def main(argv: list[str]) -> int:
         if args.only == "walkthrough":
             live_shots = stub_shots = set()
         walk_live = bool((scenes.get("walkthrough") or {}).get("live"))
+        # ``"live_stills_from_walkthrough"``: the live stills are taken on the
+        # walkthrough's own gateway after it is recorded, so the pictures and
+        # the recording show the same live run (the same findings, the same
+        # report) instead of two runs of a model that answers differently.
+        stills_after_walk = bool(scenes.get("live_stills_from_walkthrough")) and walk_live
+        if stills_after_walk and live_shots and args.only == "screenshots":
+            raise CaptureError(
+                "scenes.json takes the live stills from the walkthrough's run; "
+                "capture them with --only all"
+            )
+        if stills_after_walk and args.only == "all":
+            after_walk_shots, live_shots = live_shots, set()
+        else:
+            after_walk_shots = set()
         needs_live = not args.serve and (
             bool(live_shots) or (args.only in ("all", "walkthrough") and walk_live)
         )
@@ -1221,9 +1245,27 @@ def main(argv: list[str]) -> int:
                     )
             if args.only in ("all", "walkthrough"):
                 with seeded(pw, "walkthrough", walk_live) as (gw, browser, variables):
+                    session: list[Any] = []
                     walkthrough = capture_walkthrough(
-                        browser, gw, scenes, variables, out_dir, scratch, ffmpeg_bin
+                        browser, gw, scenes, variables, out_dir, scratch, ffmpeg_bin, session
                     )
+                    if after_walk_shots:
+                        # Steps marked for the ``after-walkthrough`` pass add what
+                        # the stills show beside the recorded run.
+                        ctx = new_context(browser, scenes, "light", device_scale_factor=1)
+                        try:
+                            ctx.add_cookies(session)
+                            page = ctx.new_page()
+                            page.goto(f"{gw.base_url}/", wait_until="load", timeout=60_000)
+                            variables.update(
+                                run_setup(page, scenes, app_root, "after-walkthrough", True)
+                            )
+                        finally:
+                            ctx.close()
+                        shots += capture_screenshots(
+                            browser, gw, scenes, variables, out_dir, scratch, ffmpeg_bin,
+                            after_walk_shots, session,
+                        )
         walkthrough_name = (scenes.get("walkthrough") or {}).get("name", "walkthrough")
         live_names = sorted(
             {s["name"] for s in scenes["screenshots"] if s.get("live")}
@@ -1248,9 +1290,15 @@ def main(argv: list[str]) -> int:
             "app_commit": git_head(Path(__file__).resolve().parent.parent),
             "kirocrew_commit": git_head(kirocrew),
             "kirocrew_tree_dirty": git_dirty(kirocrew),
-            "gateway": "isolated temporary home, approval=reads; a freshly seeded gateway "
-                       "for the stub screenshots, one for the live ones and one for the "
-                       "walkthrough",
+            "gateway": (
+                "isolated temporary home, approval=reads; a freshly seeded gateway for "
+                "the stub screenshots and one for the walkthrough, whose live run the "
+                "live screenshots were then taken on"
+                if after_walk_shots else
+                "isolated temporary home, approval=reads; a freshly seeded gateway "
+                "for the stub screenshots, one for the live ones and one for the "
+                "walkthrough"
+            ),
             "data": "fictional, seeded through the app's HTTP API (capture/scenes.json)",
             "agent_backend": {
                 "live": live_names,

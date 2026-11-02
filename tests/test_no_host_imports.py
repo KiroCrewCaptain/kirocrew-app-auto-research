@@ -1,4 +1,4 @@
-"""Only the two host shims reach Kiro Crew, and only lazily.
+"""Only the two host shims reach Kiro Crew, and only through ``importlib``.
 
 The gateway's public surface for an app is the ``AppContext`` its hooks get and
 the structural route records the registry accepts. Research Lab also drives
@@ -6,8 +6,9 @@ gateway services no App Kit seam provides yet (the AutoNudge loops, the
 artifact store, the knowledge library's LLM pool; see PORTING.md), and prefers
 the gateway's own owner-only file helpers to its restatements. Those are
 resolved from the running gateway in ``backend/_host.py`` (services) and
-``backend/_fs.py`` (file helpers) alone, by name at call time, so a missing one
-refuses or degrades the operation instead of breaking the module load. No other
+``backend/_fs.py`` (file helpers) alone, by name through ``importlib`` (a few
+constants and classes when ``_host.py`` loads, the rest at call time), so a
+missing one refuses or degrades the operation instead of breaking the module load. No other
 backend module may import ``kiro_crew`` in any form or name one of its modules,
 and neither shim has a top-level ``kiro_crew`` import.
 """

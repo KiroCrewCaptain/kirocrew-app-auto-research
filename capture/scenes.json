@@ -4,8 +4,10 @@
   "locale": "en-US",
   "timezone": "UTC",
   "provenance_note": "The isolated gateway served this repository's own copy of the app: capture.py's setup installed it from this checkout (POST /api/apps/install), trusted it and enabled it, and every picture shows its committed bundle (ui/dist/index.mjs) and backend. Kiro Crew still ships a built-in auto-research and refuses a second install under the same name, so the Kiro Crew tree the capture ran on is the App Kit level-1 commit with only the built-in's registration removed (its app.json, its package entry and its BUILTIN_NAMES row; its Python files stay because the gateway imports one of them at boot); kirocrew_tree_dirty records that.",
+  "live_stills_from_walkthrough": true,
   "data_notes": [
-    "The campaigns, their questions and sub-questions are made up for this README and were created through the app's own API (capture/scenes.json setup); the research itself, its findings and its report were written by the live research agent during the capture.",
+    "The campaigns, their questions and sub-questions are made up for this README. The WAL campaign was created and started through the app's page during the recorded walkthrough, and the saved gardening campaign through the app's own API (capture/scenes.json setup) afterwards; the research itself, its findings and its report were written by the live research agent during the capture.",
+    "The live stills (hero, use-case-findings, use-case-report) were taken on the walkthrough's own gateway after it was recorded (live_stills_from_walkthrough), so they show the same campaign run, findings and report as the recording.",
     "Campaign times and cycle counts are the gateway's own clock during the capture.",
     "The Grill me planner is not used in these pictures: on the capture gateway the host's LLM pool refused to start its worker (it could not confirm the knowledge agent's tool ban), so the sub-questions were typed by hand. The research agent itself ran on the live model."
   ],
@@ -100,7 +102,8 @@
         "cid_ready": "id"
       },
       "passes": [
-        "screenshots-live"
+        "screenshots-live",
+        "after-walkthrough"
       ]
     },
     {

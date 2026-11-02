@@ -15,7 +15,8 @@ This repository was ported from Kiro Crew's built-in Research Lab at KiroCrew
 - the tests: every `test/test_auto_research*.py`, `test/auto_research_helpers.py`,
   `test/auto_research_handlers_coverage_helpers.py`, `test/test_subquestion_queue.py`,
   the Research Lab cases of `test/test_artifacts_store_off_loop.py` and
-  `test/test_owner_only_files.py`, and `website/src/test/ResearchLabPage*.test.tsx`.
+  `test/test_owner_only_files.py`, `website/src/test/ResearchLabPage*.test.tsx`
+  and `website/src/test/grillTreeModelCov80.test.ts`.
 
 Paths with a line number below refer to that commit. A **gap** is something the
 built-in gets from Kiro Crew that an external app has no public way to get yet;
@@ -71,14 +72,19 @@ change here.
 | `iconUrl` / `heroImage*` as absolute `/app-assets/auto-research/*.svg`, `screenshots` `/app-assets/…` (`app.json:33-46`) | `iconPath` / `heroImage*` / `screenshots` as repo-relative PNGs under `assets/` | A registry app's art is repo-relative, and the catalog's publish step refuses SVG for a non-builtin source. The PNGs were rendered from the built-in SVGs (kept beside them): the icon at 512×512 on an opaque tile with `--ico-a` / `--ico-b` resolved to fixed colours, the heroes at 1200×675 and the detail heroes at 1200×288. |
 | `ui.pages` `[{"route": "/auto-research", "label": "Research Lab", "icon": "FlaskConical"}]`, page compiled into the dashboard (`app.json:28-32`, `website/src/apps/builtinRegistry.ts:53`) | `ui.entry: "dist/index.mjs"` (a committed ESM bundle built from `ui/src/`), `ui.pages` `[{"route": "/apps/auto-research", "label": "Research Lab"}]`, no `icon` | An installed app ships its page as a bundle AppHost loads. The legacy `/auto-research` route and `FlaskConical` glyph of an adopted record come from Kiro Crew's adoption pin, never from this manifest. |
 | App Store copy keys in the dashboard catalogs (`website/src/components/appstore/appManifest.ts:99-114`) | `l10n` block in `app.json` for the 11 non-English locales | The listing copy travels with the app. It is the `apps.autoResearch.manifest` subtree of `ui/i18n/<locale>.json`, kept equal by a test. |
-| No `minKiroCrewVersion` | `"minKiroCrewVersion": "0.12.0"` | The first Kiro Crew with App Kit level 1 (structural routes). |
+| No `minKiroCrewVersion` | `"minKiroCrewVersion": "0.13.0"` | The first Kiro Crew release with App Kit level 1 (structural route records, `APP_SDK_LEVEL = 1`). A 0.12.x gateway is level 0: its route registry skips every record that is not its own `AppRoute` class, so every route of this app would answer 404 there. |
 | No `license` | `"license": "Apache-2.0"` | The repository's license, stated for the catalog. Not a field adoption compares. |
 
 ## Host services without a seam: resolved from the gateway, fail closed
 
 Nothing in `backend/` but `_host.py` and `_fs.py` names `kiro_crew`, and neither
-imports it at module level; `_host._host_attr` resolves each name lazily
-(`tests/test_no_host_imports.py`). When the gateway lacks one, the operation
+has an `import kiro_crew` statement; `_host._host_attr` resolves each name
+through `importlib` and answers `None` when it is missing
+(`tests/test_no_host_imports.py`). Services and functions are resolved when an
+operation calls for them; the AutoNudge stop-reason constants, `LLMPool`,
+`ArtifactStore`, `ArtifactNotFoundError`, `ImportChunkBudgetError` and
+`OnLoopDBGuard` are resolved once, when `_host.py` is imported, each with a
+fallback (`None`, a stand-in class or the host's current literal). When the gateway lacks one, the operation
 that needs it is refused or degraded, never run some other way, and
 `register_routes` reports the reason through `ctx.health`
 (`_host.capability_issues`).
@@ -231,8 +237,9 @@ has no streaming call). Strings are `t()` over `ui/i18n/<locale>.json` for all
 | `test_auto_research.py` | same | The grill's fake pool replaces `handlers._grill_llm_pool`. |
 | `test_windows_support.py` | same | The manifest is validated by the gateway's typed loader from the repository root; the built-in discovery assertion is gone. |
 | Research Lab cases of `test/test_artifacts_store_off_loop.py`, `test/test_owner_only_files.py` | `tests/test_artifacts_store_off_loop.py`, `tests/test_owner_only_files.py` | The owner-only cases also run with the gateway's helpers removed, against `_fs`'s fallbacks. |
-| (none) | `tests/test_host_seams.py`, `tests/test_no_host_imports.py`, `tests/test_manifest_contract.py` | Every fail-closed path above, the capability report, the database copy, the shutdown suspension, `GET /models`; only the two shims reach `kiro_crew`, lazily; manifest parity, the bundle's imports, the hooks loading through the gateway's module loader, no hardcoded model id, an adoptable tree. |
+| (none) | `tests/test_host_seams.py`, `tests/test_no_host_imports.py`, `tests/test_manifest_contract.py` | Every fail-closed path above, the capability report, the database copy, the shutdown suspension, `GET /models`; only the two shims reach `kiro_crew`, through `importlib`; manifest parity, the bundle's imports, the hooks loading through the gateway's module loader, no hardcoded model id, an adoptable tree. |
 | `website/src/apps/auto-research/*.test.tsx`, `website/src/test/ResearchLabPage*.test.tsx` | `ui/tests/` | Run by vitest with stand-ins for the host SDK (`ui/tests/stubs/`), no Redux store or router. The select cases drive the host `Select` stand-in (a native `<select>`) instead of the dashboard's Radix picker. |
+| `website/src/test/grillTreeModelCov80.test.ts` | `ui/tests/grillTreeModel.test.ts` | The 19 reducer and selector cases, unchanged but for the import path (`ui/src/grillTreeModel.ts` is byte-identical to the built-in's). |
 | (none) | `ui/tests/externalSeams.test.tsx` | Catalog coverage and fallback, the scoped transport and its error mapping, the model list, the stream path, the clipboard fallback, the older-host `Select`. |
 
 Core tests that use `auto-research` only as a sample app name or slot key

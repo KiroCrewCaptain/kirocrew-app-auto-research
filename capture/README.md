@@ -43,7 +43,10 @@ exactly as a user sees it. It is driven by one file per app, `scenes.json`.
    `KIROCREW_HOME` is dropped before the gateway starts. The stub screenshots,
    the live screenshots and the walkthrough each get **their own freshly seeded
    gateway**, so the recording never shows a chat a screenshot opened, and no
-   still shows what the recording clicked.
+   still shows what the recording clicked. The one exception is opt-in:
+   with `"live_stills_from_walkthrough": true` the live screenshots are taken
+   on the walkthrough's gateway after it is recorded, because a live model
+   answers differently on every run and the stills must agree with the video.
 2. **Signs a headless Chromium in** with the gateway's one-time token, then runs
    the `setup` calls from `scenes.json` with `fetch()` from inside the page, the
    same way the dashboard calls the app's API. Demo data therefore goes through
@@ -164,7 +167,8 @@ your Kiro credits.
 | `data_notes` | List of facts about the demo data a reader of `media.json` should know (for example, dates the app stamps itself) |
 | `settle_hidden` | Extra selectors that must be gone before a frame is taken (`.animate-spin` always is) |
 | `theme_api` | Override for the theme switch call (default `PUT /api/config/theme {"mode": "{{theme}}"}`) |
-| `setup` | Ordered HTTP calls: `method`, `path`, `body`, `expect` (status list), `save` (`{"var": "dotted.path.in.response"}`), `optional`, `passes` (run only on these gateways: `screenshots`, `screenshots-live`, `walkthrough`); or `{"wait_ms": n}` |
+| `setup` | Ordered HTTP calls: `method`, `path`, `body`, `expect` (status list), `save` (`{"var": "dotted.path.in.response"}`), `optional`, `passes` (run only on these gateways: `screenshots`, `screenshots-live`, `walkthrough`, or `after-walkthrough`, a second round on the walkthrough's gateway once it is recorded); or `{"wait_ms": n}` |
+| `live_stills_from_walkthrough` | `true`: take the `live` screenshots on the walkthrough's gateway after the recording (with `--only all`), so the stills and the recording show the same live run instead of two runs of a model that answers differently |
 | `screenshots` | List of shots (below) |
 | `walkthrough` | One recorded flow (below) |
 
