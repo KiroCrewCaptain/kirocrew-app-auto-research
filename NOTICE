@@ -1,0 +1,14 @@
+Research Lab, an app for Kiro Crew
+Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+The page bundle (ui/dist/index.mjs) is built from this repository's own
+sources and bundles no third-party code: React, TanStack Query, lucide-react
+and the Kiro Crew App SDK are provided by the Kiro Crew dashboard at run time.
+The test suites install their pinned dependencies (tests/requirements.txt,
+ui/package-lock.json), Kiro Crew among them, into a test environment only.

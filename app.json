@@ -1,0 +1,222 @@
+{
+  "name": "auto-research",
+  "version": "0.1.0",
+  "displayName": "Research Lab",
+  "description": "Runs multi-cycle research campaigns that keep working after you walk away. Give it a question and it expands that into a tree of narrower sub-questions, sends agents to investigate each one, and streams findings to the page as they land. A campaign self-drives until the question is answered or it notices progress has stalled, and you can hand the finished report off to your knowledge library or a shareable artifact.",
+  "author": "kirocrew",
+  "license": "Apache-2.0",
+  "minKiroCrewVersion": "0.12.0",
+  "tags": [
+    "research",
+    "autonomy",
+    "autonudge"
+  ],
+  "highlights": [
+    "Expands one broad question into a scoped tree of sub-questions before spending agent time",
+    "Campaigns keep researching between your check-ins, with findings streamed live",
+    "Notices when a campaign stops making progress instead of looping forever",
+    "Attended mode pauses to ask you a question when it needs a decision; unattended runs straight through",
+    "Add follow-up questions mid-campaign without starting over",
+    "Start, pause, and resume any campaign from the dashboard",
+    "Export the finished report to your knowledge library or a shareable artifact"
+  ],
+  "defaultEnabled": false,
+  "platform": {
+    "os": [
+      "macos",
+      "linux",
+      "windows"
+    ]
+  },
+  "iconPath": "assets/icon.png",
+  "heroImage": "assets/hero-light.png",
+  "heroImageDark": "assets/hero-dark.png",
+  "heroImageDetail": "assets/hero-detail-light.png",
+  "heroImageDetailDark": "assets/hero-detail-dark.png",
+  "permissions": {
+    "api": [
+      "/api/apps/auto-research"
+    ]
+  },
+  "backend": {
+    "hooks": {
+      "routes": "backend.handlers:register_routes",
+      "on_startup": "backend.handlers:on_startup",
+      "on_shutdown": "backend.handlers:on_shutdown"
+    }
+  },
+  "ui": {
+    "entry": "dist/index.mjs",
+    "pages": [
+      {
+        "route": "/apps/auto-research",
+        "label": "Research Lab"
+      }
+    ]
+  },
+  "useCases": [
+    "Run a multi-cycle investigation that expands a broad question, streams evidence, and produces a reusable report."
+  ],
+  "configuration": [
+    "Create a campaign, choose Agent or Dynamic Workflow mode, expand the question, then set cycles, interval, workers, and attended or unattended operation."
+  ],
+  "screenshots": [
+    "assets/screenshot-main.png"
+  ],
+  "l10n": {
+    "bn": {
+      "displayName": "Research Lab",
+      "description": "বহু-চক্রের রিসার্চ ক্যাম্পেইন চালায়, যা তুমি সরে গেলেও কাজ করে যায়। একটি প্রশ্ন দাও, আর এটি সেটিকে আরও সংকীর্ণ উপ-প্রশ্নের একটি ট্রিতে ছড়িয়ে দেয়, প্রতিটি খতিয়ে দেখতে এজেন্ট পাঠায়, এবং ফলাফল আসার সঙ্গে সঙ্গে পেজে স্ট্রিম করে। প্রশ্নের উত্তর পাওয়া পর্যন্ত, বা অগ্রগতি থেমে গেছে বুঝতে পারা পর্যন্ত ক্যাম্পেইন নিজে থেকেই চলে; আর শেষ হওয়া রিপোর্ট তুমি তোমার নলেজ লাইব্রেরিতে বা একটি শেয়ারযোগ্য আর্টিফ্যাক্টে পাঠিয়ে দিতে পারো।",
+      "pageLabel": "Research Lab",
+      "highlights": [
+        "এজেন্টের সময় খরচ করার আগে একটি বড় প্রশ্নকে উপ-প্রশ্নের একটি সীমিত ট্রিতে ভেঙে নেয়",
+        "তুমি দুবার খোঁজ নেওয়ার মাঝেও ক্যাম্পেইন রিসার্চ চালিয়ে যায়, আর ফলাফল লাইভ স্ট্রিম হয়",
+        "অনন্তকাল ঘুরপাক না খেয়ে, ক্যাম্পেইনের অগ্রগতি থেমে গেলে তা ধরতে পারে",
+        "সঙ্গে-থাকা মোডে সিদ্ধান্ত দরকার হলে থেমে তোমাকে প্রশ্ন করে; নজরদারি ছাড়া মোডে একটানা চলে",
+        "নতুন করে শুরু না করেই ক্যাম্পেইনের মাঝপথে বাড়তি প্রশ্ন যোগ করো",
+        "ড্যাশবোর্ড থেকেই যেকোনো ক্যাম্পেইন শুরু করো, থামাও ও আবার চালাও",
+        "শেষ হওয়া রিপোর্ট তোমার নলেজ লাইব্রেরিতে বা একটি শেয়ারযোগ্য আর্টিফ্যাক্টে এক্সপোর্ট করো"
+      ]
+    },
+    "de": {
+      "displayName": "Research Lab",
+      "description": "Führt Recherchekampagnen über mehrere Zyklen aus, die weiterarbeiten, wenn du längst weg bist. Gib eine Frage vor, und sie wird zu einem Baum engerer Unterfragen aufgefächert; Agenten untersuchen jede einzelne, und Ergebnisse laufen live auf der Seite ein. Eine Kampagne steuert sich selbst, bis die Frage beantwortet ist oder sie merkt, dass der Fortschritt stockt, und den fertigen Bericht kannst du an deine Wissensbibliothek oder ein teilbares Artefakt übergeben.",
+      "pageLabel": "Research Lab",
+      "highlights": [
+        "Fächert eine breite Frage in einen abgegrenzten Baum von Unterfragen auf, bevor Agentenzeit verbraucht wird",
+        "Kampagnen recherchieren zwischen deinen Besuchen weiter, Ergebnisse erscheinen live",
+        "Erkennt, wenn eine Kampagne keinen Fortschritt mehr macht, statt endlos zu kreisen",
+        "Der begleitete Modus hält an und fragt dich, wenn eine Entscheidung nötig ist; unbeaufsichtigt läuft er durch",
+        "Füge mitten in der Kampagne Folgefragen hinzu, ohne neu zu beginnen",
+        "Jede Kampagne im Dashboard starten, pausieren und fortsetzen",
+        "Den fertigen Bericht in deine Wissensbibliothek oder ein teilbares Artefakt exportieren"
+      ]
+    },
+    "es": {
+      "displayName": "Research Lab",
+      "description": "Ejecuta campañas de investigación de varios ciclos que siguen trabajando después de que te vas. Le das una pregunta y la expande en un árbol de subpreguntas más acotadas, envía agentes a investigar cada una y transmite los hallazgos a la página a medida que llegan. Una campaña se conduce sola hasta que la pregunta queda resuelta o detecta que el avance se estancó, y puedes enviar el informe terminado a tu biblioteca de Conocimiento o a un artefacto que puedas compartir.",
+      "pageLabel": "Research Lab",
+      "highlights": [
+        "Expande una pregunta amplia en un árbol acotado de subpreguntas antes de gastar tiempo de agentes",
+        "Las campañas siguen investigando entre tus revisiones, con los hallazgos transmitidos en vivo",
+        "Detecta cuando una campaña deja de avanzar en lugar de repetirse para siempre",
+        "El modo supervisado se detiene para preguntarte cuando necesita una decisión; el modo sin supervisión avanza de corrido",
+        "Agrega preguntas de seguimiento a mitad de la campaña sin empezar de nuevo",
+        "Inicia, pausa y reanuda cualquier campaña desde el panel",
+        "Exporta el informe terminado a tu biblioteca de Conocimiento o a un artefacto que puedas compartir"
+      ]
+    },
+    "fr": {
+      "displayName": "Research Lab",
+      "description": "Mène des campagnes de recherche multi-cycles qui continuent de travailler après ton départ. Donne-lui une question et il la déploie en une arborescence de sous-questions plus précises, envoie des agents enquêter sur chacune et diffuse les conclusions sur la page à mesure qu’elles arrivent. Une campagne s’autopilote jusqu’à ce que la question soit résolue ou qu’elle détecte que la progression s’est arrêtée, et tu peux verser le rapport final dans ta bibliothèque de connaissances ou dans un artefact partageable.",
+      "pageLabel": "Research Lab",
+      "highlights": [
+        "Déploie une question large en une arborescence délimitée de sous-questions avant de consommer du temps d’agent",
+        "Les campagnes continuent de chercher entre tes passages, avec des conclusions diffusées en direct",
+        "Détecte qu’une campagne n’avance plus au lieu de boucler indéfiniment",
+        "Le mode supervisé s’interrompt pour te poser une question quand une décision est nécessaire ; le mode sans surveillance va jusqu’au bout sans s’arrêter",
+        "Ajoute des questions complémentaires en cours de campagne, sans repartir de zéro",
+        "Démarre, mets en pause et reprends n’importe quelle campagne depuis le tableau de bord",
+        "Exporte le rapport final vers ta bibliothèque de connaissances ou un artefact partageable"
+      ]
+    },
+    "hi": {
+      "displayName": "Research Lab",
+      "description": "बहु-चक्र रिसर्च अभियान चलाता है जो तुम्हारे हटने के बाद भी काम करते रहते हैं। एक सवाल दो और यह उसे छोटे उप-सवालों के पेड़ में फैला देता है, हर एक की जाँच के लिए एजेंट भेजता है, और नतीजे आते ही पेज पर स्ट्रीम करता है। अभियान खुद चलता रहता है जब तक सवाल का जवाब न मिल जाए या उसे लगे कि प्रगति रुक गई है, और तैयार रिपोर्ट को तुम अपनी Knowledge लाइब्रेरी या शेयर करने योग्य आर्टिफ़ैक्ट में भेज सकते हो।",
+      "pageLabel": "Research Lab",
+      "highlights": [
+        "एजेंट का समय खर्च करने से पहले एक बड़े सवाल को सीमित दायरे वाले उप-सवालों के पेड़ में फैलाता है",
+        "तुम्हारे दो बार देखने के बीच भी अभियान रिसर्च करते रहते हैं, और नतीजे लाइव स्ट्रीम होते हैं",
+        "हमेशा लूप में घूमने की जगह पहचान लेता है कि कोई अभियान आगे बढ़ना बंद कर चुका है",
+        "अटेंडेड मोड फ़ैसला चाहिए होने पर रुककर तुमसे सवाल पूछता है; अनअटेंडेड सीधे चलता रहता है",
+        "अभियान के बीच में ही आगे के सवाल जोड़ो, शुरू से शुरू करने की ज़रूरत नहीं",
+        "किसी भी अभियान को डैशबोर्ड से शुरू करो, रोको और फिर चलाओ",
+        "तैयार रिपोर्ट को अपनी Knowledge लाइब्रेरी या शेयर करने योग्य आर्टिफ़ैक्ट में एक्सपोर्ट करो"
+      ]
+    },
+    "it": {
+      "displayName": "Research Lab",
+      "description": "Esegue campagne di ricerca a più cicli che continuano a lavorare dopo che ti sei allontanato. Le dai una domanda e la espande in un albero di sotto-domande più circoscritte, manda agenti a indagare su ciascuna e trasmette i risultati alla pagina man mano che arrivano. Una campagna va avanti da sé finché la domanda non ha risposta o finché non nota che i progressi si sono arenati, e il report finito lo puoi passare alla libreria Conoscenza o a un artefatto condivisibile.",
+      "pageLabel": "Research Lab",
+      "highlights": [
+        "Espande un’unica domanda ampia in un albero circoscritto di sotto-domande prima di spendere tempo degli agenti",
+        "Le campagne continuano a cercare tra un tuo controllo e l’altro, con i risultati trasmessi in tempo reale",
+        "Si accorge quando una campagna smette di fare progressi, invece di girare in tondo all’infinito",
+        "La modalità con supervisione si ferma a chiederti qualcosa quando serve una decisione; senza supervisione va avanti fino in fondo",
+        "Aggiungi domande di approfondimento a campagna in corso senza ricominciare",
+        "Avvia, metti in pausa e riprendi qualsiasi campagna dalla dashboard",
+        "Esporta il report finito nella libreria Conoscenza o in un artefatto condivisibile"
+      ]
+    },
+    "ja": {
+      "displayName": "Research Lab",
+      "description": "席を離れても継続するマルチサイクルの調査キャンペーンを実行します。質問を与えると、より具体的なサブ質問のツリーに展開し、それぞれをエージェントに調査させ、結果が届くたびにページへ表示します。質問に答えが出るか、進展が止まったと判断するまでキャンペーンは自律的に進み、完成したレポートをナレッジライブラリや共有可能なアーティファクトへ渡せます。",
+      "pageLabel": "Research Lab",
+      "highlights": [
+        "1 つの幅広い質問をスコープされた小質問のツリーに展開してからエージェント時間を使用",
+        "キャンペーンはチェックイン間で調査を続け、結果はライブにストリームされます",
+        "進捗が止まったことを検知し、延々とループするのを防ぎます",
+        "対話モードでは判断が必要なときに一時停止して質問します。無人モードでは中断せずに続行します",
+        "最初からやり直さずに、キャンペーンの途中でフォローアップの質問を追加",
+        "ダッシュボードから任意のキャンペーンを開始、一時停止、再開",
+        "完成したレポートをナレッジライブラリまたは共有可能な成果物にエクスポート"
+      ]
+    },
+    "ko": {
+      "displayName": "Research Lab",
+      "description": "자리를 비운 뒤에도 계속 진행되는 다중 사이클 조사 캠페인을 실행합니다. 질문을 주면 더 좁은 하위 질문의 트리로 확장하고, 각각을 조사할 에이전트를 보내며, 결과가 도착하는 대로 페이지에 스트리밍합니다. 캠페인은 질문에 답이 나오거나 진전이 멈춘 것을 감지할 때까지 스스로 진행되며, 완성된 보고서는 지식 라이브러리나 공유 가능한 아티팩트로 넘길 수 있습니다.",
+      "pageLabel": "Research Lab",
+      "highlights": [
+        "에이전트 시간을 쓰기 전에 하나의 넓은 질문을 범위가 정해진 하위 질문 트리로 확장합니다",
+        "캠페인은 확인하지 않는 동안에도 조사를 이어 가고, 결과는 실시간으로 스트리밍됩니다",
+        "끝없이 반복하는 대신 캠페인의 진전이 멈춘 시점을 감지합니다",
+        "대화 모드는 판단이 필요할 때 멈추고 질문하며, 무인 모드는 중단 없이 진행합니다",
+        "처음부터 다시 시작하지 않고 캠페인 도중에 후속 질문을 추가합니다",
+        "대시보드에서 어떤 캠페인이든 시작·일시중지·재개",
+        "완성된 보고서를 지식 라이브러리나 공유 가능한 아티팩트로 내보냅니다"
+      ]
+    },
+    "pt": {
+      "displayName": "Research Lab",
+      "description": "Executa campanhas de pesquisa de vários ciclos que continuam trabalhando depois que você sai. Dê uma pergunta e ele a desdobra em uma árvore de subperguntas mais específicas, envia agentes para investigar cada uma e transmite as descobertas para a página conforme elas chegam. Uma campanha se conduz sozinha até a pergunta ser respondida ou até perceber que o progresso parou, e você pode enviar o relatório final para a sua biblioteca de Conhecimento ou para um artefato compartilhável.",
+      "pageLabel": "Research Lab",
+      "highlights": [
+        "Desdobra uma pergunta ampla em uma árvore delimitada de subperguntas antes de gastar tempo de agente",
+        "As campanhas continuam pesquisando entre as suas visitas, com as descobertas transmitidas ao vivo",
+        "Percebe quando uma campanha para de progredir, em vez de repetir para sempre",
+        "O modo supervisionado pausa para lhe fazer uma pergunta quando precisa de uma decisão; sem supervisão, a execução segue direto",
+        "Acrescente perguntas de acompanhamento no meio da campanha, sem começar de novo",
+        "Inicie, pause e retome qualquer campanha pelo painel",
+        "Exporte o relatório final para a sua biblioteca de Conhecimento ou para um artefato compartilhável"
+      ]
+    },
+    "ru": {
+      "displayName": "Research Lab",
+      "description": "Ведёт многоцикловые исследовательские кампании, которые продолжают работать, даже когда тебя нет за компьютером. Задай вопрос — и кампания развернёт его в дерево более узких подвопросов, отправит агентов изучить каждый и будет передавать выводы на страницу по мере их появления. Кампания идёт сама, пока вопрос не решён или пока не станет ясно, что продвижение остановилось; готовый отчёт можно отправить в библиотеку знаний или в артефакт, которым легко поделиться.",
+      "pageLabel": "Research Lab",
+      "highlights": [
+        "Разворачивает один широкий вопрос в очерченное дерево подвопросов, прежде чем тратить время агентов",
+        "Кампании продолжают исследование между твоими заходами, а выводы приходят в реальном времени",
+        "Замечает, что кампания перестала продвигаться, вместо бесконечного цикла",
+        "Режим с присмотром останавливается и задаёт вопрос, когда нужно решение; без присмотра запуск проходит целиком",
+        "Добавляй уточняющие вопросы посреди кампании, не начиная заново",
+        "Запуск, пауза и продолжение любой кампании прямо на панели",
+        "Экспорт готового отчёта в библиотеку знаний или в артефакт, которым можно поделиться"
+      ]
+    },
+    "zh-CN": {
+      "displayName": "Research Lab",
+      "description": "运行多轮研究任务，你离开之后它仍会继续。给它一个问题，它会拆成一棵更细的子问题树，派代理逐个调查，并把发现实时推送到页面。研究任务会自行推进，直到问题有了答案或它发现进展停滞；完成的报告可以存入知识库，也可以导出为可分享的产物。",
+      "pageLabel": "Research Lab",
+      "highlights": [
+        "先把宽泛的问题展开成范围明确的子问题树，然后才动用代理",
+        "在你两次查看之间，研究任务照常推进，发现实时推送",
+        "会察觉研究任务不再有进展，而不是无限循环下去",
+        "有人值守模式在需要决策时会暂停向你提问；无人值守则一路跑完",
+        "研究任务进行中也能追加问题，无需从头开始",
+        "在仪表板上启动、暂停和恢复任意研究任务",
+        "把完成的报告导出到知识库，或导出为可分享的产物"
+      ]
+    }
+  }
+}
