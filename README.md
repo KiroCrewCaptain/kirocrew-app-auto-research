@@ -2,7 +2,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/media/hero-dark.png">
-  <img src="docs/media/hero-light.png" alt="HERO_ALT">
+  <img src="docs/media/hero-light.png" alt="The Research Lab page in Kiro Crew: a + New Campaign button, the research-only note, and a History list with a finished campaign (Done, 3 cycles) on SQLite's WAL mode versus its rollback journal and a saved campaign that has not started yet (Ready) on saving water in a dry summer">
 </picture>
 
 **Hand a research question to an agent that keeps working, and come back to a report.**
@@ -47,27 +47,39 @@ sub-questions and clarifying questions for you to keep or prune. On the next
 step you choose how many cycles it may use, how long it waits between them,
 and what "done" means.
 
-![USE_CASE_PLAN_ALT](docs/media/use-case-plan-light.png)
+![The New Campaign form, step 1 of 3: Agent mode chosen, the question How should a two-person bakery plan oven time when weekend orders double? typed in, and two sub-questions added by hand, which bakes can share one oven temperature and how much can be baked the evening before](docs/media/use-case-plan-light.png)
 
 ### 2. Let it research while you work, and see what it found
 
-USE_CASE_FINDINGS_TEXT
+You are choosing how a small desktop app should store its data and want to
+know whether SQLite's WAL mode is worth it. You start a campaign with two
+sub-questions (what happens on a crash mid-write, and which mode is faster for
+one user who mostly reads), tick **Run unattended**, and go back to your own
+work. Each cycle the agent reads sources, writes a finding with its evidence
+strength, and checks it against your **Definition of Done**. In the capture
+below it needed three cycles of the five allowed, then marked **Goal met** and
+stopped by itself.
 
-![USE_CASE_FINDINGS_ALT](docs/media/use-case-findings-light.png)
+![A finished campaign on SQLite's WAL mode versus its rollback journal at cycle 3 of 5 with three findings, each showing its cycle, evidence strength and goal status: cycle 0 says crash safety is equal in both modes, cycle 1 that pure reads are roughly a tie, and cycle 2, marked Goal met, that WAL with synchronous=NORMAL is the documented sweet spot. Above them, Continue Research offers Fork & Challenge, Add to Knowledge and Export as Artifact](docs/media/use-case-findings-light.png)
 
 ### 3. Read the report and take it with you
 
-USE_CASE_REPORT_TEXT
+When a campaign is done, **View report** shows what the agent wrote, split into
+sections you can **Copy** one at a time into a chat or a document: what is
+answered and how well, the weak spots it is aware of, and each cycle's notes
+with links to the pages it read. **Export as Artifact** turns it into a
+shareable report, **Add to Knowledge** puts it in your Knowledge Library, and
+**Fork & Challenge** starts a follow-up campaign that questions these findings.
 
-![USE_CASE_REPORT_ALT](docs/media/use-case-report-light.png)
+![The same campaign with its report open under the findings: a title, a Research State section listing what is answered, the weak spots and the open leads, and a Cycle 0 section on a crash mid-write that cites the SQLite Write-Ahead Logging page, each section with its own Copy button](docs/media/use-case-report-light.png)
 
 ## Watch it
 
-![WALKTHROUGH_ALT](docs/media/walkthrough.gif)
+![A walkthrough of Research Lab: starting a campaign on SQLite's WAL mode versus its rollback journal with two typed sub-questions, a 30-second wait between cycles, a definition of done and unattended mode; the first finding arriving while the campaign runs; the campaign finishing with three findings; and its report opening](docs/media/walkthrough.gif)
 
 [Watch the walkthrough as a video (MP4)](docs/media/walkthrough.mp4).
 
-<sub>PROVENANCE</sub>
+<sub>Recorded from a real Kiro Crew (`99161724c0`, the App Kit level-1 commit, with only the built-in copy's registration removed) on a throwaway home, running this repository's own copy of the app. The campaign questions and sub-questions are made up and were entered through the app; the research, its findings and its report came from a live model with the research agent's real web reads, so they will differ on every run. Two waits for research cycles were shortened (about one and two and a half minutes). The sub-questions were typed by hand: the **Grill me** planner could not run on the capture machine.</sub>
 
 ## Install
 
@@ -127,8 +139,8 @@ around to answer the agent.
    type your answer and choose **Answer & resume**.
 6. When it is done, choose **View report**. **Export as Artifact** saves a
    shareable report, **Add to Knowledge** puts the findings in your Knowledge
-   Library, and **Continue Research** starts a follow-up campaign that builds on
-   these findings.
+   Library, and **Fork & Challenge** (under **Continue Research**) starts a
+   follow-up campaign that builds on these findings.
 
 ## Settings & data
 

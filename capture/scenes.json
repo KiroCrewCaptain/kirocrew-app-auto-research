@@ -6,7 +6,8 @@
   "provenance_note": "The isolated gateway served this repository's own copy of the app: capture.py's setup installed it from this checkout (POST /api/apps/install), trusted it and enabled it, and every picture shows its committed bundle (ui/dist/index.mjs) and backend. Kiro Crew still ships a built-in auto-research and refuses a second install under the same name, so the Kiro Crew tree the capture ran on is the App Kit level-1 commit with only the built-in's registration removed (its app.json, its package entry and its BUILTIN_NAMES row; its Python files stay because the gateway imports one of them at boot); kirocrew_tree_dirty records that.",
   "data_notes": [
     "The campaigns, their questions and sub-questions are made up for this README and were created through the app's own API (capture/scenes.json setup); the research itself, its findings and its report were written by the live research agent during the capture.",
-    "Campaign times and cycle counts are the gateway's own clock during the capture."
+    "Campaign times and cycle counts are the gateway's own clock during the capture.",
+    "The Grill me planner is not used in these pictures: on the capture gateway the host's LLM pool refused to start its worker (it could not confirm the knowledge agent's tool ban), so the sub-questions were typed by hand. The research agent itself ran on the live model."
   ],
   "init_storage": {
     "mc-nav": "0"
@@ -155,7 +156,7 @@
         }
       ],
       "ready_after": "text=How much can be baked the evening before",
-      "alt": "TBD"
+      "alt": "The New Campaign form, step 1 of 3: Agent mode chosen, the question How should a two-person bakery plan oven time when weekend orders double? typed in, and two sub-questions added by hand, which bakes can share one oven temperature and how much can be baked the evening before"
     },
     {
       "name": "use-case-findings",
@@ -179,7 +180,7 @@
           ]
         }
       ],
-      "alt": "TBD"
+      "alt": "A finished campaign on SQLite's WAL mode versus its rollback journal at cycle 3 of 5 with three findings, each showing its cycle, evidence strength and goal status: cycle 0 says crash safety is equal in both modes, cycle 1 that pure reads are roughly a tie, and cycle 2, marked Goal met, that WAL with synchronous=NORMAL is the documented sweet spot. Above them, Continue Research offers Fork & Challenge, Add to Knowledge and Export as Artifact"
     },
     {
       "name": "use-case-report",
@@ -212,7 +213,7 @@
           ]
         }
       ],
-      "alt": "TBD"
+      "alt": "The same campaign with its report open under the findings: a title, a Research State section listing what is answered, the weak spots and the open leads, and a Cycle 0 section on a crash mid-write that cites the SQLite Write-Ahead Logging page, each section with its own Copy button"
     },
     {
       "name": "hero",
@@ -223,7 +224,7 @@
       ],
       "live": true,
       "ready_after": "text=HISTORY",
-      "alt": "TBD"
+      "alt": "The Research Lab page in Kiro Crew: a + New Campaign button, the research-only note, and a History list with a finished campaign (Done, 3 cycles) on SQLite's WAL mode versus its rollback journal and a saved campaign that has not started yet (Ready) on saving water in a dry summer"
     }
   ],
   "walkthrough": {
@@ -231,7 +232,7 @@
     "theme": "light",
     "path": "/apps/auto-research",
     "live": true,
-    "alt": "TBD",
+    "alt": "A walkthrough of Research Lab: starting a campaign on SQLite's WAL mode versus its rollback journal with two typed sub-questions, a 30-second wait between cycles, a definition of done and unattended mode; the first finding arriving while the campaign runs; the campaign finishing with three findings; and its report opening",
     "tail_ms": 4000,
     "steps": [
       {

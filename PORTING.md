@@ -65,7 +65,7 @@ change here.
 | `kiro_crew.dashboard.handlers._shared.string_field_error` (`handlers.py:487`, `:962`) | `handlers.string_field_error`, the same 400 | A few lines. |
 | `kiro_crew.atomic_write.read_json_or`, `kiro_crew.owner_only_files.*`, `kiro_crew.sqlite_wal.enable_wal` (`campaign/storage.py:23-32`, `subquestion_queue.py:34`, `campaign/workflow_mode.py:35`) | `backend/_fs.py`: the gateway's own helper when it has one, else a restatement | See gap 6. |
 | `kiro_crew.platform_compat.{is_link_or_junction,unlink_link_or_junction}` (`campaign/agent_mode.py:46`) and `platform_compat.awake_now` (`campaign/watchdog.py:27`) | `backend/_compat.py` (the clock is the gateway's when it has one, else `time.monotonic`) | Small and policy-free. `watchdog.platform_compat` is still the name a test stands in for. |
-| Logger `kiro_crew.apps.builtins.auto_research.handlers` (`campaign/__init__.py:38`) | `kirocrew.app.auto-research`, for the facade too | The app logger namespace. An operator filter on the old name needs the new one. |
+| Logger `kiro_crew.apps.builtins.auto_research.handlers` (`campaign/__init__.py:38`) | `kirocrew.app.auto-research`, for the facade too | The app logger namespace. An operator filter on the old name needs the new one. A background gateway writes it to `gateway.log` (its file handler is on the root logger); a gateway run in the foreground attaches that handler to `kiro_crew` only, so there the app's warnings reach stderr and not the file, as every app's do. |
 | GET routes answered HEAD too (aiohttp's `add_get`) | GET only | The registry dispatches the five methods a record may name. Nothing in the page sends HEAD. |
 | (none) | `GET /models` | See gap 4. |
 | `iconUrl` / `heroImage*` as absolute `/app-assets/auto-research/*.svg`, `screenshots` `/app-assets/…` (`app.json:33-46`) | `iconPath` / `heroImage*` / `screenshots` as repo-relative PNGs under `assets/` | A registry app's art is repo-relative, and the catalog's publish step refuses SVG for a non-builtin source. The PNGs were rendered from the built-in SVGs (kept beside them): the icon at 512×512 on an opaque tile with `--ico-a` / `--ico-b` resolved to fixed colours, the heroes at 1200×675 and the detail heroes at 1200×288. |
@@ -94,6 +94,13 @@ that needs it is refused or degraded, never run some other way, and
 | `kiro_crew.knowledge.ingestion.ImportChunkBudgetError` | `campaign/publication.py:28` | A stand-in that nothing raises. |
 | `kiro_crew.on_loop_db.OnLoopDBGuard` | `campaign/storage.py:25` | A guard that logs an on-loop open (it cannot raise: it has no strict switch to read). |
 | `kiro_crew.dashboard.handlers.api_models` | (new, `GET /models`) | The picker offers only "Default (inherit)". |
+
+One more host behaviour shows up only when the hooks run in a real gateway:
+the gateway executes `handlers.py` once per hook entry (`routes`, `on_startup`,
+`on_shutdown`), so module-level state there would be three different objects.
+The state they share is in `backend/_runtime.py`
+(`tests/test_manifest_contract.py` loads the hooks through the gateway's own
+module loader and checks it).
 
 ## Remaining gaps
 
