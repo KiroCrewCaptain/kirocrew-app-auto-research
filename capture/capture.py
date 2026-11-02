@@ -630,11 +630,18 @@ def api_call(page: Any, method: str, path: str, body: Any) -> tuple[int, Any]:
     return int(result[0]), result[1]
 
 
-def run_setup(page: Any, scenes: dict[str, Any], app_root: Path) -> dict[str, Any]:
+def run_setup(
+    page: Any, scenes: dict[str, Any], app_root: Path, gateway_pass: str = ""
+) -> dict[str, Any]:
     # ``{{app_root}}``: this repository's root, for a setup step that installs
     # the app from source (``POST /api/apps/install {"source": "{{app_root}}"}``).
     variables: dict[str, Any] = {"app_root": str(app_root)}
     for index, step in enumerate(scenes.get("setup", [])):
+        # ``"passes"``: run this step only on the named gateways
+        # (``screenshots``, ``screenshots-live``, ``walkthrough``), e.g. to start
+        # work a live agent picks up without starting it on the stub.
+        if "passes" in step and gateway_pass not in step["passes"]:
+            continue
         if "wait_ms" in step:
             # Rows the app timestamps to the second need a gap to sort predictably.
             page.wait_for_timeout(int(step["wait_ms"]))
@@ -1167,7 +1174,7 @@ def main(argv: list[str]) -> int:
             try:
                 seed_ctx = new_context(browser, scenes, "light", device_scale_factor=1)
                 try:
-                    variables = run_setup(sign_in(seed_ctx, gw), scenes, app_root)
+                    variables = run_setup(sign_in(seed_ctx, gw), scenes, app_root, label)
                 finally:
                     seed_ctx.close()
                 yield gw, browser, variables

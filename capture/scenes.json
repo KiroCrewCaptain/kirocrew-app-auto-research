@@ -1,0 +1,364 @@
+{
+  "app": "auto-research",
+  "fixture": "minimal",
+  "locale": "en-US",
+  "timezone": "UTC",
+  "provenance_note": "The isolated gateway served this repository's own copy of the app: capture.py's setup installed it from this checkout (POST /api/apps/install), trusted it and enabled it, and every picture shows its committed bundle (ui/dist/index.mjs) and backend. Kiro Crew still ships a built-in auto-research and refuses a second install under the same name, so the Kiro Crew tree the capture ran on is the App Kit level-1 commit with only the built-in's registration removed (its app.json, its package entry and its BUILTIN_NAMES row; its Python files stay because the gateway imports one of them at boot); kirocrew_tree_dirty records that.",
+  "data_notes": [
+    "The campaigns, their questions and sub-questions are made up for this README and were created through the app's own API (capture/scenes.json setup); the research itself, its findings and its report were written by the live research agent during the capture.",
+    "Campaign times and cycle counts are the gateway's own clock during the capture."
+  ],
+  "init_storage": {
+    "mc-nav": "0"
+  },
+  "ready": "text=Research Lab",
+  "forbid_text": [
+    "Grill unavailable",
+    "Failed to start campaign",
+    "The campaign stopped unexpectedly"
+  ],
+  "setup": [
+    {
+      "name": "install this repository",
+      "method": "POST",
+      "path": "/api/apps/install",
+      "body": {
+        "source": "{{app_root}}"
+      }
+    },
+    {
+      "name": "trust it (it runs its own code)",
+      "method": "POST",
+      "path": "/api/security/trusted-apps/auto-research"
+    },
+    {
+      "name": "turn the app on",
+      "method": "POST",
+      "path": "/api/apps/auto-research/enable"
+    },
+    {
+      "name": "retire the host's one-time startup intro",
+      "method": "POST",
+      "path": "/api/feature-videos/feedback",
+      "body": {
+        "id": "crewmates",
+        "status": "dismissed"
+      },
+      "optional": true
+    },
+    {
+      "name": "a campaign the live research agent runs",
+      "method": "POST",
+      "path": "/api/apps/auto-research/campaigns",
+      "body": {
+        "question": "What are the practical trade-offs between SQLite's WAL mode and its rollback journal for a small single-user desktop app?",
+        "sub_questions": [
+          {
+            "text": "How does each mode behave when the app crashes in the middle of a write?",
+            "origin": "manual"
+          },
+          {
+            "text": "Which mode is faster for one user who mostly reads?",
+            "origin": "manual"
+          }
+        ],
+        "max_cycles": 5,
+        "idle_secs": 30,
+        "auto_approve": true,
+        "success_criteria": "Every sub-question has a sourced answer and the report names a recommendation",
+        "execution_mode": "agent",
+        "model": ""
+      },
+      "save": {
+        "cid": "id"
+      },
+      "passes": [
+        "screenshots-live"
+      ]
+    },
+    {
+      "name": "a second campaign, saved but not started",
+      "method": "POST",
+      "path": "/api/apps/auto-research/campaigns",
+      "body": {
+        "question": "Which habits help a home gardener save water during a dry summer?",
+        "sub_questions": [
+          {
+            "text": "Which watering times lose the least water to evaporation?",
+            "origin": "manual"
+          }
+        ],
+        "max_cycles": 5,
+        "idle_secs": 30,
+        "auto_approve": true,
+        "success_criteria": "Every sub-question has a sourced answer and the report names a recommendation",
+        "execution_mode": "agent",
+        "model": ""
+      },
+      "save": {
+        "cid_ready": "id"
+      },
+      "passes": [
+        "screenshots-live"
+      ]
+    },
+    {
+      "name": "start the first campaign (the live research agent picks it up)",
+      "method": "PATCH",
+      "path": "/api/apps/auto-research/campaigns/{{cid}}",
+      "body": {
+        "action": "start"
+      },
+      "passes": [
+        "screenshots-live"
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "use-case-plan",
+      "path": "/apps/auto-research",
+      "themes": [
+        "light"
+      ],
+      "steps": [
+        {
+          "click": "role=button[name='+ New Campaign'] >> nth=0"
+        },
+        {
+          "fill": "#research-question",
+          "value": "How should a two-person bakery plan oven time when weekend orders double?"
+        },
+        {
+          "type": "role=textbox[name='Add sub-question manually']",
+          "value": "Which bakes can share one oven temperature?",
+          "delay_ms": 5
+        },
+        {
+          "press": "role=textbox[name='Add sub-question manually']",
+          "key": "Enter"
+        },
+        {
+          "type": "role=textbox[name='Add sub-question manually']",
+          "value": "How much can be baked the evening before without losing quality?",
+          "delay_ms": 5
+        },
+        {
+          "press": "role=textbox[name='Add sub-question manually']",
+          "key": "Enter"
+        },
+        {
+          "mouse_park": [
+            1400,
+            880
+          ]
+        }
+      ],
+      "ready_after": "text=How much can be baked the evening before",
+      "alt": "TBD"
+    },
+    {
+      "name": "use-case-findings",
+      "path": "/apps/auto-research",
+      "themes": [
+        "light"
+      ],
+      "live": true,
+      "steps": [
+        {
+          "click": "text=SQLite's WAL mode >> nth=0"
+        },
+        {
+          "wait_for": "role=button[name=/Continue Research/]",
+          "timeout_ms": 1500000
+        },
+        {
+          "mouse_park": [
+            1400,
+            880
+          ]
+        }
+      ],
+      "alt": "TBD"
+    },
+    {
+      "name": "use-case-report",
+      "path": "/apps/auto-research",
+      "themes": [
+        "light"
+      ],
+      "live": true,
+      "steps": [
+        {
+          "click": "text=SQLite's WAL mode >> nth=0"
+        },
+        {
+          "wait_for": "role=button[name=/Continue Research/]",
+          "timeout_ms": 1500000
+        },
+        {
+          "click": "role=button[name=/View report/]"
+        },
+        {
+          "wait_for": "role=button[name=/Hide report/]"
+        },
+        {
+          "scroll": "role=button[name=/Hide report/]"
+        },
+        {
+          "mouse_park": [
+            1400,
+            880
+          ]
+        }
+      ],
+      "alt": "TBD"
+    },
+    {
+      "name": "hero",
+      "path": "/apps/auto-research",
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "live": true,
+      "ready_after": "text=HISTORY",
+      "alt": "TBD"
+    }
+  ],
+  "walkthrough": {
+    "name": "walkthrough",
+    "theme": "light",
+    "path": "/apps/auto-research",
+    "live": true,
+    "alt": "TBD",
+    "tail_ms": 4000,
+    "steps": [
+      {
+        "caption": "Research Lab: give it a question, it researches in cycles",
+        "position": "bottom"
+      },
+      {
+        "wait_ms": 1800
+      },
+      {
+        "click": "role=button[name='+ New Campaign'] >> nth=0"
+      },
+      {
+        "caption": ""
+      },
+      {
+        "type": "#research-question",
+        "value": "What are the practical trade-offs between SQLite's WAL mode and its rollback journal for a small single-user desktop app?",
+        "delay_ms": 18
+      },
+      {
+        "type": "role=textbox[name='Add sub-question manually']",
+        "value": "How does each mode behave when the app crashes mid-write?",
+        "delay_ms": 14
+      },
+      {
+        "press": "role=textbox[name='Add sub-question manually']",
+        "key": "Enter"
+      },
+      {
+        "type": "role=textbox[name='Add sub-question manually']",
+        "value": "Which mode is faster for one user who mostly reads?",
+        "delay_ms": 14
+      },
+      {
+        "press": "role=textbox[name='Add sub-question manually']",
+        "key": "Enter"
+      },
+      {
+        "wait_ms": 800
+      },
+      {
+        "click": "role=button[name='Next →']"
+      },
+      {
+        "select": "role=combobox[name='Idle between cycles']",
+        "value": "30"
+      },
+      {
+        "type": "role=textbox[name='Definition of Done (optional)']",
+        "value": "Both sub-questions have a sourced answer and the report names a recommendation",
+        "delay_ms": 10
+      },
+      {
+        "click": "#auto-approve"
+      },
+      {
+        "wait_ms": 600
+      },
+      {
+        "click": "role=button[name='Next →']"
+      },
+      {
+        "wait_for": "text=All checks passed"
+      },
+      {
+        "wait_ms": 1500
+      },
+      {
+        "click": "role=button[name='Start Campaign']"
+      },
+      {
+        "wait_for": "text=ACTIVE",
+        "timeout_ms": 30000
+      },
+      {
+        "wait_ms": 1000
+      },
+      {
+        "click": "text=SQLite's WAL mode >> nth=0"
+      },
+      {
+        "caption": "The research agent works through the sub-questions, one cycle at a time",
+        "position": "bottom"
+      },
+      {
+        "wait_for": "text=/Findings \\(1\\)/",
+        "timeout_ms": 1500000,
+        "cut": true
+      },
+      {
+        "caption": "Each cycle's finding lands on the page as it is written",
+        "position": "bottom"
+      },
+      {
+        "wait_ms": 3500
+      },
+      {
+        "caption": ""
+      },
+      {
+        "wait_for": "role=button[name=/Continue Research/]",
+        "timeout_ms": 1500000,
+        "cut": true
+      },
+      {
+        "caption": "Goal met: the campaign stops itself and the report is ready",
+        "position": "bottom"
+      },
+      {
+        "wait_ms": 3000
+      },
+      {
+        "caption": ""
+      },
+      {
+        "click": "role=button[name=/View report/]"
+      },
+      {
+        "wait_for": "role=button[name=/Hide report/]"
+      },
+      {
+        "scroll": "role=button[name=/Hide report/]"
+      },
+      {
+        "wait_ms": 3000
+      }
+    ]
+  }
+}

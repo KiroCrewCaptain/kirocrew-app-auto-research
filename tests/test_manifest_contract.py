@@ -284,6 +284,11 @@ class TestTheManifest(unittest.TestCase):
                     self.assertTrue(fn.__module__.startswith(f"_kirocrew_app_{name}."))
             routes = loaded["routes"].__globals__["ROUTES"]
             self.assertTrue(routes)
+            # Each hook entry gets its own execution of handlers.py, so state the
+            # hooks share must live in a sibling module, which is imported once.
+            runtimes = {id(fn.__globals__["_runtime"]) for fn in loaded.values()}
+            self.assertEqual(len(runtimes), 1)
+            self.assertEqual(len({id(fn.__globals__) for fn in loaded.values()}), len(loaded))
             self.assertIn(f"_kirocrew_app_{name}.backend.campaign.storage", sys.modules)
         finally:
             unload_app_modules(name)

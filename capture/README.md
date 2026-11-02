@@ -8,7 +8,7 @@ exactly as a user sees it. It is driven by one file per app, `scenes.json`.
 |---|---|
 | `capture.py` | The harness: boots the gateway, seeds data, takes the pictures, records the video |
 | `stub_backend.py` | The offline model stand-in a gateway runs for scenes that show no chat reply: Kiro Crew's stub ACP backend |
-| `scenes.json` | This app's demo data, screenshots and walkthrough script (start from `scenes.example.json`) |
+| `scenes.json` | This app's demo data, screenshots and walkthrough script |
 | `check_readme.py` | Checks README.md against the standard in `CHECKLIST.md` (CI runs it) |
 
 ## What one run does
@@ -121,9 +121,34 @@ no machine-specific path goes into `scenes.json`:
 {"name": "turn it on", "method": "POST", "path": "/api/apps/my-app/enable"}
 ```
 
-`scenes.example.json` carries the same steps under
-`setup_when_not_built_in`. Say which copy was photographed in
-`"provenance_note"`, which is copied into `media.json`.
+This app's `scenes.json` runs those steps in `setup`, so the pictures show this
+repository's bundle and backend, not the built-in copy. While Kiro Crew still
+ships a built-in `auto-research`, the install step is refused on a stock
+checkout (`app 'auto-research' is already installed`), so capture on a Kiro
+Crew tree that carries App Kit level 1 with only the built-in's registration
+removed. Kiro Crew's gateway still imports one module of the built-in at boot
+(`session_keys.py`, see PORTING.md gap 2), so its Python files stay; only its
+manifest, its package entry and its `BUILTIN_NAMES` row go:
+
+```bash
+git clone --shared --no-checkout /path/to/KiroCrew /tmp/kc-capture
+git -C /tmp/kc-capture checkout --detach <level-1 commit>
+cd /tmp/kc-capture
+git rm -q src/kiro_crew/apps/builtins/auto_research/app.json \
+          src/kiro_crew/apps/builtins/auto_research/__init__.py
+printf '"""Kept importable for the gateway; not registered."""\n' \
+  > src/kiro_crew/apps/builtins/auto_research/__init__.py
+sed -i '/^    "auto_research",$/d' src/kiro_crew/apps/builtins/__init__.py
+# then build and stage the dashboard as above, and pass --kirocrew /tmp/kc-capture
+```
+
+`media.json` then records `kirocrew_tree_dirty: true`. Say which copy was
+photographed in `"provenance_note"`, which is copied into `media.json`.
+
+A campaign is driven by the live research agent, so the live scenes wait for
+real research cycles (`wait_for` with a long `timeout_ms`, and `"cut": true` in
+the recording). Expect a live run to take tens of minutes and to use some of
+your Kiro credits.
 
 ## `scenes.json` reference
 
@@ -139,13 +164,15 @@ no machine-specific path goes into `scenes.json`:
 | `data_notes` | List of facts about the demo data a reader of `media.json` should know (for example, dates the app stamps itself) |
 | `settle_hidden` | Extra selectors that must be gone before a frame is taken (`.animate-spin` always is) |
 | `theme_api` | Override for the theme switch call (default `PUT /api/config/theme {"mode": "{{theme}}"}`) |
-| `setup` | Ordered HTTP calls: `method`, `path`, `body`, `expect` (status list), `save` (`{"var": "dotted.path.in.response"}`), `optional`; or `{"wait_ms": n}` |
+| `setup` | Ordered HTTP calls: `method`, `path`, `body`, `expect` (status list), `save` (`{"var": "dotted.path.in.response"}`), `optional`, `passes` (run only on these gateways: `screenshots`, `screenshots-live`, `walkthrough`); or `{"wait_ms": n}` |
 | `screenshots` | List of shots (below) |
 | `walkthrough` | One recorded flow (below) |
 
 A **screenshot** has `name` (kebab-case; the file is `<name>-<theme>.png`),
 `path`, `alt` (required), `themes` (default both), `ready`, `steps`,
-`ready_after` (selector to wait for after the steps), `settle_ms`, `clip`
+`ready_after` (selector to wait for after the steps), `settle_ms`, `clip`, `fresh_page`
+(`true`: a new browser profile for this shot, so nothing an earlier shot left in the
+page's own storage shows)
 (selector: capture only that element), `forbid_text`, `settle_hidden` and
 `live` (`true`: run against the real model, see above).
 
@@ -174,6 +201,8 @@ after every live capture.
 | `{"wait_ms": 800}` | Pause (only to let a viewer read, never as a barrier) |
 | `{"scroll": SEL}` | Scroll an element into view |
 | `{"caption": "...", "position": "bottom"}` | Show a caption pill (`"top"` or `"bottom"`, `offset` px from that edge); `"over": SEL` centres it on that element, `"above": SEL` sits it `offset` px above that element; `""` hides it |
+| `{"upload": SEL, "files": ["capture/fixtures/a.png"]}` | Hand files to an `<input type=file>` (hidden or not), as choosing them would; relative paths are under this repository |
+| `{"select_text": SEL}` | Drag across that element's text with the mouse, selecting it as a person would |
 | `{"mouse_park": [x, y]}` | Move the pointer out of the way |
 
 Selectors are Playwright selectors: `text=...`, `role=radio[name='History']`,

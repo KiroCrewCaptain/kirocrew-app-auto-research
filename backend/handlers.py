@@ -3,8 +3,9 @@
 The campaign engine lives in ``campaign/``; its package docstring names the
 owner of each concern. This module keeps what is HTTP: auth, request parsing,
 the status and JSON each route answers with, the ``backend.hooks`` entry points
-(``register_routes``, ``on_startup``, ``on_shutdown``), and the watchdog task
-handle. Every other name it defined, and every host collaborator a component
+(``register_routes``, ``on_startup``, ``on_shutdown``). The state those three
+share (the watchdog task, the grill's LLM pool, the ingestion tasks) lives in
+``_runtime``, because the gateway executes this module once per hook entry. Every other name it defined, and every host collaborator a component
 binds (resolved through ``_host``), still resolves as ``handlers.<name>``:
 reads, writes and deletes are forwarded to the component that binds the name,
 so a patch applied through this module is the one every caller sees. Two
@@ -41,7 +42,7 @@ from .campaign import (
     watchdog,
     workflow_mode,
 )
-from . import _host
+from . import _host, _runtime
 from ._host import LLMPool, Route
 
 if TYPE_CHECKING:  # each forwarded name, typed from its owner; bound for mypy only
@@ -197,6 +198,7 @@ if TYPE_CHECKING:  # each forwarded name, typed from its owner; bound for mypy o
         is_app_enabled,
         is_research_slot_key,
     )
+    from ._runtime import _bg_tasks, _grill_llm_pool, _watchdog_task  # noqa: F401
     from .campaign.workflow_mode import (  # noqa: F401
         _WORKFLOW_RUN_FILE,
         RESEARCH_WORKFLOW_SOURCE,
@@ -221,6 +223,8 @@ _AGENT_MODE = f"{_CAMPAIGN}.agent_mode"
 _WORKFLOW_MODE = f"{_CAMPAIGN}.workflow_mode"
 _WATCHDOG = f"{_CAMPAIGN}.watchdog"
 _GRILL = f"{_CAMPAIGN}.grill"
+#: Not a campaign component: the state the hook entry points share (see _runtime).
+_RUNTIME = f"{__package__}._runtime"
 
 #: Historic ``handlers`` name -> the dotted name of the ``campaign`` component
 #: that binds it. A name, not a module object, so a purged-and-reimported
@@ -371,6 +375,9 @@ _EXPORTS: dict[str, str] = {
     "_grill_node_shaped": _GRILL,
     "_parse_grill_nodes": _GRILL,
     "_grill_expand_children": _GRILL,
+    "_watchdog_task": _RUNTIME,
+    "_grill_llm_pool": _RUNTIME,
+    "_bg_tasks": _RUNTIME,
 }
 
 
@@ -432,12 +439,6 @@ class _ReExportModule(ModuleType):
             super().__delattr__(name)
 
 
-_watchdog_task: asyncio.Task | None = None
-#: The grill's own LLM pool, built by ``on_startup`` (isolated from the
-#: Knowledge Library's pool so the two do not share workers).
-_grill_llm_pool: Any | None = None
-#: Knowledge ingestions started by ``to-knowledge``, held until they finish.
-_bg_tasks: set[asyncio.Task] = set()
 
 
 def _require_auth(request: web.Request) -> web.Response | None:
@@ -473,8 +474,8 @@ def _llm_pool(request: web.Request) -> Any | None:
     A handler driven directly (a test, or a gateway that ran no startup hook)
     may carry one on its application under the built-in's key instead.
     """
-    if _grill_llm_pool is not None:
-        return _grill_llm_pool
+    if _runtime._grill_llm_pool is not None:
+        return _runtime._grill_llm_pool
     return request.app.get("auto_research_llm_pool")
 
 
@@ -958,8 +959,8 @@ async def _handle_to_knowledge(request: web.Request) -> web.Response:
     task = asyncio.create_task(publication._ingest_findings(pipeline, store, uri, sid, cid))
     # Held here, not on the gateway's application (which is frozen once it
     # serves), so the task is not garbage-collected while it runs.
-    _bg_tasks.add(task)
-    task.add_done_callback(_bg_tasks.discard)
+    _runtime._bg_tasks.add(task)
+    task.add_done_callback(_runtime._bg_tasks.discard)
     lifecycle._audit("campaign_to_knowledge", cid, source_id=sid)
     return web.json_response({"id": sid, "status": "ingesting"}, status=201)
 
@@ -1143,16 +1144,16 @@ async def on_startup(ctx: Any) -> None:
     the context carries as ``ctx.http_app`` because the manifest declares
     routes. Without it no campaign is watched, and health says so.
     """
-    global _watchdog_task, _grill_llm_pool
     _host.bind(ctx)
-    if _grill_llm_pool is None and LLMPool is not None:
-        _grill_llm_pool = LLMPool(pool_size=1)
+    if _runtime._grill_llm_pool is None and LLMPool is not None:
+        _runtime._grill_llm_pool = LLMPool(pool_size=1)
     http_app = getattr(ctx, "http_app", None)
     if http_app is None:
         logger.warning("Research Lab: no gateway application in the app context; not watching")
         return
-    if _watchdog_task is None or _watchdog_task.done():
-        _watchdog_task = asyncio.create_task(watchdog._watchdog_loop(http_app))
+    task = _runtime._watchdog_task
+    if task is None or task.done():
+        _runtime._watchdog_task = asyncio.create_task(watchdog._watchdog_loop(http_app))
 
 
 async def on_shutdown(ctx: Any) -> None:
@@ -1167,8 +1168,7 @@ async def on_shutdown(ctx: Any) -> None:
     re-establishes trust on its first poll after the next start, exactly as it
     did after a re-enable.
     """
-    global _watchdog_task, _grill_llm_pool
-    task, _watchdog_task = _watchdog_task, None
+    task, _runtime._watchdog_task = _runtime._watchdog_task, None
     if task is not None and not task.done():
         task.cancel()
         try:
@@ -1181,7 +1181,7 @@ async def on_shutdown(ctx: Any) -> None:
         await watchdog._suspend_research_loops_while_disabled(state)
     except Exception:
         logger.exception("Research Lab: could not suspend research loops")
-    pool, _grill_llm_pool = _grill_llm_pool, None
+    pool, _runtime._grill_llm_pool = _runtime._grill_llm_pool, None
     if pool is not None:
         await pool.shutdown()
 

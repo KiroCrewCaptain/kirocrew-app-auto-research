@@ -125,7 +125,16 @@ class TestIdentity:
         assert sorted(set(h._EXPORTS) & set(vars(h))) == []
 
     def test_every_owner_is_a_listed_component(self):
-        assert set(h._EXPORTS.values()) == {f"{_CAMPAIGN}.{stem}" for stem in _LAYERS}
+        # Plus ``backend._runtime``: not a component, the state the three hook
+        # entries share (the gateway executes handlers.py once per hook).
+        assert set(h._EXPORTS.values()) == {f"{_CAMPAIGN}.{stem}" for stem in _LAYERS} | {
+            "backend._runtime"
+        }
+        assert sorted(n for n, o in h._EXPORTS.items() if o == "backend._runtime") == [
+            "_bg_tasks",
+            "_grill_llm_pool",
+            "_watchdog_task",
+        ]
         assert sorted(p.stem for p in _CAMPAIGN_DIR.glob("*.py")) == sorted(["__init__", *_LAYERS])
 
     def test_forwarded_names_are_listed_by_dir(self):
