@@ -26,7 +26,7 @@
  * directly instead of waiting on a socket jsdom will never open.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -51,6 +51,7 @@ vi.mock('../src/api', () => ({
 
 import { api } from '../src/api'
 import ResearchLabPage from '../src/ResearchLabPage'
+import { stubLocale } from './stubs/app-sdk'
 
 // Controllable stand-in for the browser's EventSource. The page opens one per
 // campaign detail; jsdom would only ever fail the connection asynchronously,
@@ -182,10 +183,29 @@ describe('ResearchLabPage — root list and wizard branches', () => {
     const user = userEvent.setup()
     renderPage()
     await openWizard(user)
-    await user.click(screen.getByRole('button', { name: /Dynamic Workflow/i }))
+    await user.click(screen.getByRole('radio', { name: /Dynamic Workflow/i }))
     expect(screen.getByText(/can fan out to many sub-agents/i)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /Agent \(adaptive\)/i }))
+    await user.click(screen.getByRole('radio', { name: /Agent \(adaptive\)/i }))
     expect(screen.queryByText(/can fan out to many sub-agents/i)).not.toBeInTheDocument()
+  })
+
+  // The two mode cards showed the choice only by their accent border. They are
+  // a radio group named by the line above them, so the chosen mode is announced.
+  it('announces the execution mode cards as a named radio group with the chosen one checked', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await openWizard(user)
+    const group = screen.getByRole('radiogroup', { name: /How sub-agent execution is orchestrated/i })
+    const agent = within(group).getByRole('radio', { name: /Agent \(adaptive\)/i })
+    const workflow = within(group).getByRole('radio', { name: /Dynamic Workflow/i })
+    expect(agent).toHaveAttribute('aria-checked', 'true')
+    expect(workflow).toHaveAttribute('aria-checked', 'false')
+    // One Tab stop, on the checked card.
+    expect(agent).toHaveAttribute('tabindex', '0')
+    expect(workflow).toHaveAttribute('tabindex', '-1')
+    await user.click(workflow)
+    expect(workflow).toHaveAttribute('aria-checked', 'true')
+    expect(agent).toHaveAttribute('aria-checked', 'false')
   })
 
   it('a grill that returns no nodes reports itself unavailable', async () => {
@@ -266,6 +286,28 @@ describe('ResearchLabPage — root list and wizard branches', () => {
     expect(screen.getByPlaceholderText(/How do other teams/i)).toBeInTheDocument()
   })
 
+  it('counts the sub-questions behind the suggestion in the interface language', async () => {
+    vi.mocked(api.researchGrillExpand).mockResolvedValue({
+      nodes: [researchNode('r1', 'What durability guarantees exist?'), researchNode('r2', 'What do peers use?')],
+    })
+    const user = userEvent.setup()
+    renderPage()
+    const ta = await openWizard(user)
+    setQuestion(ta)
+    await user.click(screen.getByRole('button', { name: /Grill me/i }))
+    await screen.findByDisplayValue('What durability guarantees exist?')
+    // The page renders its strings when a step renders, so switch before the
+    // step change; the Next button is still the one rendered in English.
+    const next = screen.getByRole('button', { name: /Next/i })
+    stubLocale('de')
+    try {
+      await user.click(next)
+      expect(await screen.findByText('vorgeschlagen aus 2 Unterfragen')).toBeInTheDocument()
+    } finally {
+      stubLocale('en')
+    }
+  })
+
   it('a clarifier can be accepted and then expanded for a deeper round', async () => {
     vi.mocked(api.researchGrillExpand).mockResolvedValueOnce({ nodes: [clarifierNode('c1', 'Production or exploration?')] })
     const user = userEvent.setup()
@@ -312,6 +354,26 @@ describe('ResearchLabPage — root list and wizard branches', () => {
     expect(await screen.findByText(/Failed to start campaign/i)).toBeInTheDocument()
     expect(vi.mocked(api.researchAction)).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: /Start Campaign/i })).toBeEnabled()
+  })
+
+  it('states the run estimate as one sentence, in the interface language', async () => {
+    vi.mocked(api.researchValidate).mockResolvedValue({
+      can_start: true, errors: [], warnings: [], estimated_cycles: 10, estimated_duration_min: 20,
+    })
+    const user = userEvent.setup()
+    renderPage()
+    const ta = await openWizard(user)
+    setQuestion(ta, 'A sufficiently long research question to pass the length check')
+    await user.click(screen.getByRole('button', { name: /Next/i }))
+    // Switch before the step change: the page renders its strings when a step renders.
+    const next = screen.getByRole('button', { name: /Next/i })
+    stubLocale('de')
+    try {
+      await user.click(next)
+      expect(await screen.findByText(/^Bis zu \d+ Zyklen, \d+s inaktiv\. ~20 Min\.$/)).toBeInTheDocument()
+    } finally {
+      stubLocale('en')
+    }
   })
 
   it('a create that returns no id neither starts a campaign nor leaves the wizard', async () => {

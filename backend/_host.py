@@ -5,11 +5,12 @@ three kinds of host surface:
 
 1. **The App Kit context** handed to its hooks (``ctx``): the data directory,
    outbound redaction (``ctx.scrub``), the audit log (``ctx.audit``), the
-   gateway's aiohttp application (``ctx.http_app``, granted because the
-   manifest declares routes) and health reporting (``ctx.health``). These are
-   public seams. Each is read off the context with ``getattr`` and has a
-   fallback that is never MORE permissive than the host: no scrubber masks
-   every string, no audit sink logs locally.
+   app's own enabled switch (``ctx.lifecycle``), the gateway's aiohttp
+   application (``ctx.http_app``, granted because the manifest declares
+   routes) and health reporting (``ctx.health``). These are public seams. Each
+   is read off the context with ``getattr`` and has a fallback that is never
+   MORE permissive than the host: no scrubber masks every string, no audit
+   sink logs locally, no lifecycle seam stands every campaign down.
 
 2. **Gateway services with no App Kit seam yet.** A campaign drives worker chat
    slots through the host's autonudge loops, starts Dynamic Workflow runs,
@@ -259,13 +260,68 @@ def slot_history_key(slot: Any) -> str:
     return fn(slot)
 
 
-def is_app_enabled(name: str) -> bool:
-    """The app's live enabled flag; ``False`` (stand down) when the gateway cannot say."""
-    fn = _host_attr("kiro_crew.apps.manager", "is_app_enabled")
-    if not callable(fn):
-        return False
-    return bool(fn(name))
+def _lifecycle_is_enabled(ctx: Any) -> Callable[[], Any] | None:
+    """``ctx.lifecycle.is_enabled`` (App Kit level 2), or ``None`` when *ctx* has none."""
+    is_enabled = getattr(getattr(ctx, "lifecycle", None), "is_enabled", None)
+    return is_enabled if callable(is_enabled) else None
 
+
+def is_app_enabled(name: str) -> bool:
+    """The app's own enabled switch, read through ``ctx.lifecycle.is_enabled()``. Blocking.
+
+    ``False`` (stand down) when the bound context has no lifecycle seam, and for
+    any *name* but this app's: the seam answers for the context's own app only.
+    """
+    if name != APP_NAME:
+        return False
+    is_enabled = _lifecycle_is_enabled(bound())
+    if is_enabled is None:
+        return False
+    return bool(is_enabled())
+
+
+def revoke_slot_trust(state: Any, slot: Any) -> None:
+    """End a worker slot's standing trust by the gateway's own rule.
+
+    The host's ``revoke_slot_trust`` also clears the ``approval_policy`` that turn
+    admission cached from the flag (the spawn gate and each child's tool approval
+    read that, not the flag) and the flag on slots sharing the session. On a
+    gateway without it the flag alone is cleared, as that gateway's built-in did.
+    """
+    fn = _host_attr("kiro_crew.dashboard.chat_utils_slots", "revoke_slot_trust")
+    if callable(fn):
+        fn(state, slot)
+        return
+    slot._trust = False
+
+
+def register_stopped_loop_tombstone(provider: Any) -> bool:
+    """Answer core's ``stopped_loop_tombstone`` seam for this app; whether it took.
+
+    A stop of a campaign worker's legacy loop asks that seam whether to keep the
+    stopped row (the watchdog reads it as a deliberate finish) or remove it. A
+    gateway without the seam answers from its own copy of the predicate.
+    """
+    register = _host_attr("kiro_crew.apps.seams", "register")
+    seam = _host_attr("kiro_crew.apps.seams", "SEAM_STOPPED_LOOP_TOMBSTONE")
+    if not callable(register) or not isinstance(seam, str):
+        return False
+    try:
+        register(seam, APP_NAME, provider)
+    except ValueError:
+        logger.warning("Research Lab: another app holds the stopped-loop seam", exc_info=True)
+        return False
+    return True
+
+
+#: The Knowledge Library's pending-reason property and its import-budget value,
+#: written with a source parked ``pending`` so the Sources list can say why.
+PENDING_REASON_PROP: str = (
+    _host_attr("kiro_crew.knowledge.store", "PENDING_REASON_PROP") or "pending_reason"
+)
+PENDING_REASON_IMPORT_BUDGET: str = (
+    _host_attr("kiro_crew.knowledge.store", "PENDING_REASON_IMPORT_BUDGET") or "import_budget"
+)
 
 #: The gateway's LLM worker pool class (grill and report authoring), or ``None``.
 LLMPool: Any | None = _host_attr("kiro_crew.knowledge.llm_pool", "LLMPool")
@@ -356,10 +412,6 @@ _CAPABILITIES: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "the model picker offers only the default: this Kiro Crew cannot list models for apps",
         (("kiro_crew.dashboard.handlers", "api_models"),),
     ),
-    (
-        "campaigns stand down: this Kiro Crew cannot report whether the app is enabled",
-        (("kiro_crew.apps.manager", "is_app_enabled"),),
-    ),
 )
 
 
@@ -376,6 +428,11 @@ def capability_issues(ctx: Any) -> list[str]:
     if getattr(ctx, "http_app", None) is None:
         issues.append(
             "campaigns are not watched: this Kiro Crew does not hand apps its web application"
+        )
+    if _lifecycle_is_enabled(ctx) is None:
+        issues.append(
+            "campaigns stand down: this Kiro Crew cannot tell an app whether it is enabled "
+            "(no ctx.lifecycle, App Kit level 2)"
         )
     for issue, names in _CAPABILITIES:
         if any(_host_attr(module, name) is None for module, name in names):

@@ -15,17 +15,25 @@ HTTP status decisions stay with the route adapters in ``handlers``.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import html as html_mod
 import json
 import logging
 import re
 import sqlite3
 import threading
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
 from . import LOGGER_NAME, storage, untrusted
-from .._host import ArtifactNotFoundError, ArtifactStore, ImportChunkBudgetError
+from .._host import (
+    PENDING_REASON_IMPORT_BUDGET,
+    PENDING_REASON_PROP,
+    ArtifactNotFoundError,
+    ArtifactStore,
+    ImportChunkBudgetError,
+)
 
 #: Whether the gateway has an artifact store; without one the export answers 503.
 _HAS_ARTIFACTS = ArtifactStore is not None
@@ -377,6 +385,31 @@ async def _author_report_html(
     return untrusted._redact_finding({"v": html})["v"]
 
 
+# Per-campaign report-export locks with a holder count each, so an entry is
+# dropped once no export holds or waits for it and the dict stays bounded.
+_report_export_locks: dict[str, list[Any]] = {}
+
+
+@contextlib.asynccontextmanager
+async def _report_export_lock(cid: str) -> AsyncIterator[None]:
+    """Serialize one campaign's slug read → create-or-update → slug persist.
+
+    Two exports that both read an unbound slug would each create an artifact and
+    the later persist would orphan the other. Holding this across the sequence,
+    with the slug re-read inside it, makes the second export update the first
+    one's artifact. Only touched on the event loop, so no thread guard is needed.
+    """
+    entry = _report_export_locks.setdefault(cid, [asyncio.Lock(), 0])
+    entry[1] += 1
+    try:
+        async with entry[0]:
+            yield
+    finally:
+        entry[1] -= 1
+        if not entry[1]:
+            del _report_export_locks[cid]
+
+
 def _persist_report_slug(cid: str, slug: str) -> None:
     """Bind the report artifact to the campaign. Blocking; call off-loop."""
     db = storage._get_db()
@@ -528,8 +561,12 @@ async def _ingest_findings(pipeline: Any, store: Any, uri: str, sid: str, cid: s
         store.db.commit()
 
     def _mark_pending() -> None:
-        store.db.execute("UPDATE sources SET sync_status = 'pending' WHERE id = ?", (sid,))
-        store.db.commit()
+        # The reason rides in the same take, so the Sources list can say why.
+        store.merge_source_properties(
+            sid,
+            set_keys={PENDING_REASON_PROP: PENDING_REASON_IMPORT_BUDGET},
+            sync_status="pending",
+        )
 
     try:
         # A user's one-shot import: the click is deliberate, and this route has

@@ -42,7 +42,7 @@ from .campaign import (
     watchdog,
     workflow_mode,
 )
-from . import _host, _runtime
+from . import _host, _runtime, seams
 from ._host import LLMPool, Route
 
 if TYPE_CHECKING:  # each forwarded name, typed from its owner; bound for mypy only
@@ -665,7 +665,11 @@ async def _handle_action(request: web.Request) -> web.Response:
             model_error = lifecycle._campaign_model_error({"model": body["model"]})
             if model_error:
                 return web.json_response(
-                    {"error": "Validation failed", "code": "model_invalid", "errors": [model_error]},
+                    {
+                        "error": "Validation failed",
+                        "code": "model_invalid",
+                        "errors": [model_error],
+                    },
                     status=400,
                 )
             fork_model = lifecycle._campaign_model({"model": body["model"]})
@@ -869,7 +873,9 @@ async def _handle_to_artifact(request: web.Request) -> web.Response:
     question = row["question"]
     findings_md = await asyncio.to_thread(storage._read_text_or_missing, findings_path)
     if findings_md is None:
-        return web.json_response({"error": "No findings yet", "code": "findings_missing"}, status=404)
+        return web.json_response(
+            {"error": "No findings yet", "code": "findings_missing"}, status=404
+        )
     subs = json.loads(row["sub_questions"] or "[]")
     html = await publication._author_report_html(
         _llm_pool(request),
@@ -879,9 +885,14 @@ async def _handle_to_artifact(request: web.Request) -> web.Response:
         row["total_cycles"],
         cid,
     )
-    art, name, regenerated = await publication._publish_report_artifact(
-        cid, question, html, row["report_artifact_slug"]
-    )
+    async with publication._report_export_lock(cid):
+        # Re-read under the lock: a concurrent export may have bound a slug while
+        # this one was authoring, and creating a second artifact would orphan one.
+        slug_row = await asyncio.to_thread(publication._read_report_slug, cid)
+        existing_slug = slug_row["report_artifact_slug"] if slug_row else None
+        art, name, regenerated = await publication._publish_report_artifact(
+            cid, question, html, existing_slug
+        )
     lifecycle._audit("campaign_to_artifact", cid, slug=art.slug)
     return web.json_response(
         {"slug": art.slug, "name": name, "regenerated": regenerated},
@@ -944,7 +955,9 @@ async def _handle_to_knowledge(request: web.Request) -> web.Response:
         return web.json_response({"error": "Knowledge pipeline unavailable"}, status=503)
     raw_findings = await asyncio.to_thread(storage._read_text_or_missing, findings_path)
     if raw_findings is None:
-        return web.json_response({"error": "No findings yet", "code": "findings_missing"}, status=404)
+        return web.json_response(
+            {"error": "No findings yet", "code": "findings_missing"}, status=404
+        )
     uri = await publication._write_knowledge_copy(d, raw_findings)
     # Dedup check
     existing = await asyncio.to_thread(store.get_source_by_uri, uri)
@@ -1142,9 +1155,11 @@ async def on_startup(ctx: Any) -> None:
 
     The watchdog reads the dashboard state off the gateway's application, which
     the context carries as ``ctx.http_app`` because the manifest declares
-    routes. Without it no campaign is watched, and health says so.
+    routes. Without it no campaign is watched, and health says so. It also
+    registers the app's answer to core's stopped-loop seam (``seams.py``).
     """
     _host.bind(ctx)
+    seams.register()
     if _runtime._grill_llm_pool is None and LLMPool is not None:
         _runtime._grill_llm_pool = LLMPool(pool_size=1)
     http_app = getattr(ctx, "http_app", None)

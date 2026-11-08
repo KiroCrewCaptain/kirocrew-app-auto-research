@@ -17,6 +17,7 @@ import logging
 import os
 import sqlite3
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -131,6 +132,38 @@ def enable_wal(conn: sqlite3.Connection, *, timeout_secs: float) -> str:
             wait = min(wait * 2, 1.0)
             continue
         return str(row[0]).lower() if row is not None else "wal"
+
+
+#: The files SQLite keeps beside a database, the host's list when it has one.
+SQLITE_SIDECAR_SUFFIXES: tuple[str, ...] = tuple(
+    _host._host_attr("kiro_crew.owner_only_files", "SQLITE_SIDECAR_SUFFIXES")
+    or ("-wal", "-shm", "-journal")
+)
+
+
+def atomic_write(path: Path | str, content: str) -> None:
+    """Replace *path* with UTF-8 *content* through a uniquely named temp file.
+
+    The unique name keeps two writers of one file from sharing a staging file.
+    The host's helper also retries the rename through the Windows
+    sharing-violation window; the restatement renames once.
+    """
+    host = _host_fn("kiro_crew.atomic_write", "atomic_write")
+    if host is not None:
+        host(path, content)
+        return
+    target = Path(path)
+    fd, tmp = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(content)
+        os.replace(tmp, target)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def read_json_or(path: Path | str, default: Any, *, logger: logging.Logger, what: str) -> Any:

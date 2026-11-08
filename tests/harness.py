@@ -8,8 +8,11 @@ on a test's own ``web.Application``, with aiohttp's router doing the matching
 under the same prefix, so a test request uses the URL a dashboard request uses
 and ``ctx.http_app`` is that application, as the gateway's is.
 
-``make_ctx`` builds the context at App Kit level 1 with the host's real
-``ScrubSDK`` and ``AuditSDK`` (Kiro Crew is a pinned test dependency).
+``make_ctx`` builds the context at App Kit level 2 with the host's real
+``ScrubSDK``, ``AuditSDK`` and ``AppLifecycleSDK`` (Kiro Crew is a pinned test
+dependency). The lifecycle seam reads the app's install record, which a test's
+data home does not have, so it answers "disabled" unless a test installs one or
+replaces ``handlers.is_app_enabled``.
 """
 
 from __future__ import annotations
@@ -37,21 +40,24 @@ class FakeHealth:
 class FakeCtx:
     data_dir: Path
     name: str = "auto-research"
-    sdk_level: int = 1
+    sdk_level: int = 2
     scrub: Any = None
     audit: Any = None
+    lifecycle: Any = None
     http_app: Any = None
     health: FakeHealth = field(default_factory=FakeHealth)
 
 
 def make_ctx(home: Path, **overrides: Any) -> FakeCtx:
     from kiro_crew.apps.audit_sdk import AuditSDK
+    from kiro_crew.apps.lifecycle_sdk import AppLifecycleSDK
     from kiro_crew.apps.scrub_sdk import ScrubSDK
 
     values: dict[str, Any] = {
         "data_dir": Path(home) / "apps" / "auto-research" / "data",
         "scrub": ScrubSDK(),
         "audit": AuditSDK("auto-research"),
+        "lifecycle": AppLifecycleSDK("auto-research"),
     }
     values.update(overrides)
     return FakeCtx(**values)

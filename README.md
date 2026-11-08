@@ -146,10 +146,10 @@ around to answer the agent.
 ## Settings & data
 
 - **Where your data lives:** the campaign list and settings are in
-  `~/.kiro/crew/apps/auto-research/data/campaigns.db` for this repository's
-  copy, and in `~/.kiro/crew/apps/auto-research/campaigns.db` for the copy that
-  comes with Kiro Crew today (this copy brings that file over the first time it
-  opens, and leaves the original where it was). Each campaign's
+  `~/.kiro/crew/apps/auto-research/data/campaigns.db`, for this repository's
+  copy and for the one that comes with Kiro Crew. An older Kiro Crew kept that
+  file one folder up, in `~/.kiro/crew/apps/auto-research/campaigns.db`; either
+  copy moves it into `data/` the first time it opens it. Each campaign's
   brief, findings and report are in
   `~/.kiro/crew/workspace/research/<campaign>/` (both under the folder you chose
   for Kiro Crew's data, if you moved it). Each campaign's research agent is a
@@ -208,8 +208,9 @@ permissions, so a later Kiro Crew release can move an existing built-in install
 onto this source in place, at a commit pinned in that release. Until a user's
 Kiro Crew does that, it keeps running its built-in copy, and nothing here
 changes what they run. [PORTING.md](PORTING.md) lists every place this copy
-differs from the built-in and why, and what Kiro Crew must change first (gap 1:
-the built-in's campaigns database is outside the folder an adoption keeps).
+differs from the built-in and why, what Kiro Crew still has no public seam
+for, and what Kiro Crew must land with the pin (a refusal at the adoption swap
+for a campaigns database still outside the folder an adoption keeps).
 
 | Path | What it is |
 |---|---|
@@ -218,6 +219,7 @@ the built-in's campaigns database is outside the folder an adoption keeps).
 | `backend/campaign/` | The campaign engine: storage, lifecycle, the agent and workflow modes, the watchdog, the planner, publication |
 | `backend/_host.py`, `backend/_fs.py` | The only modules that touch the gateway (by name, through `importlib`) |
 | `backend/_runtime.py` | State the three hooks share |
+| `backend/seams.py` | The app's answer to Kiro Crew's stopped-loop seam |
 | `backend/_compat.py`, `_json.py` | Small helpers restated from Kiro Crew |
 | `ui/src/` | The dashboard page (React), built against `@kirocrew/app-sdk` |
 | `ui/i18n/` | The page's strings in every language the dashboard ships |
@@ -233,8 +235,9 @@ the built-in's campaigns database is outside the folder an adoption keeps).
 Kiro Crew 0.13.0 or later (`minKiroCrewVersion`): App Kit level 1 structural
 route records (a 0.12.x gateway skips them, so the app's API would answer 404
 there), plus `ctx.scrub` (redaction of everything the agent wrote before it is
-shown), `ctx.audit` (the security event log) and `ctx.http_app` (the dashboard
-state the watchdog reads). A campaign also drives gateway services no App Kit
+shown), `ctx.audit` (the security event log), `ctx.lifecycle` (App Kit level 2:
+whether the app is switched on; without it every campaign stands down) and
+`ctx.http_app` (the dashboard state the watchdog reads). A campaign also drives gateway services no App Kit
 seam offers yet: the AutoNudge loop service, worker chat slots, Dynamic
 Workflow runs, the Knowledge Library, the artifact store and the LLM pool.
 `backend/_host.py` looks each up by name through `importlib`: services when an

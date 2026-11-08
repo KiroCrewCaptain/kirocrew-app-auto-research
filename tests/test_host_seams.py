@@ -2,23 +2,25 @@
 
 The built-in imported its collaborators straight from Kiro Crew; this copy reads
 the public seams off its hook context (``ctx.scrub``, ``ctx.audit``,
-``ctx.http_app``, ``ctx.health``, ``ctx.sdk_level``) and resolves the services
-that have no seam yet by name, in ``backend/_host.py``. Each case below pins
-one of those touch points, and above all its fallback: never more permissive
-than the host. Text is masked when there is no scrubber, a campaign stands down
-when the gateway cannot say the app is enabled, and agent mode launches no
-worker without the gateway's AutoNudge service.
+``ctx.lifecycle``, ``ctx.http_app``, ``ctx.health``, ``ctx.sdk_level``) and
+resolves the services that have no seam yet by name, in ``backend/_host.py``.
+Each case below pins one of those touch points, and above all its fallback:
+never more permissive than the host. Text is masked when there is no scrubber, a
+campaign stands down when the context has no lifecycle seam to say the app is
+enabled, and agent mode launches no worker without the gateway's AutoNudge
+service.
 
-Also here, because they are new in the external copy: the one-time copy of the
-built-in's campaigns database into the app's data directory, the suspension of
-research loops in ``on_shutdown``, and the ``GET /models`` route.
+Also here, because they are new in the external copy: the registration of the
+app's answer to core's stopped-loop seam, the suspension of research loops in
+``on_shutdown``, and the ``GET /models`` route. The campaigns database's
+location and its one-time copy are ``test_auto_research_db_location.py``.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
-import sqlite3
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -56,7 +58,7 @@ def _without(monkeypatch: pytest.MonkeyPatch, *missing: tuple[str, str]) -> None
 
 
 class TestCapabilityReport:
-    def test_a_full_level_1_host_reports_nothing(self, bound_ctx: FakeCtx) -> None:
+    def test_a_full_level_2_host_reports_nothing(self, bound_ctx: FakeCtx) -> None:
         bound_ctx.http_app = web.Application()
         assert _host.capability_issues(bound_ctx) == []
 
@@ -71,6 +73,7 @@ class TestCapabilityReport:
         assert any("not watched" in i for i in issues)
         assert any("agent-mode campaigns cannot run" in i for i in issues)
         assert any("report export is refused" in i for i in issues)
+        assert any("campaigns stand down" in i for i in issues)
 
     def test_register_routes_reports_through_ctx_health(self, bound_ctx: FakeCtx) -> None:
         ctx = FakeCtx(data_dir=bound_ctx.data_dir, sdk_level=0, scrub=None)
@@ -171,100 +174,57 @@ class TestDataLocation:
         assert storage.research_dir() == _isolated_home / "workspace" / "research"
 
 
-def _legacy_db_with_rows(path: Path, *ids: str) -> None:
-    """A built-in-era database: WAL mode, rows still in the -wal file."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    keeper = sqlite3.connect(str(path))
-    keeper.execute("PRAGMA journal_mode=WAL")
-    keeper.execute("PRAGMA wal_autocheckpoint=0")
-    # The table as the built-in's first release created it; later columns are
-    # migrated in by the normal schema path.
-    keeper.execute(
-        """CREATE TABLE campaigns (
-        id TEXT PRIMARY KEY, name TEXT NOT NULL, question TEXT NOT NULL,
-        sub_questions TEXT NOT NULL DEFAULT '[]', sources TEXT NOT NULL DEFAULT '[]',
-        max_cycles INTEGER NOT NULL DEFAULT 30, idle_secs INTEGER NOT NULL DEFAULT 120,
-        status TEXT NOT NULL DEFAULT 'ready',
-        created_at REAL NOT NULL, started_at REAL, completed_at REAL,
-        total_cycles INTEGER NOT NULL DEFAULT 0, error_message TEXT)"""
-    )
-    for cid in ids:
-        keeper.execute(
-            "INSERT INTO campaigns (id, name, question, created_at) VALUES (?, ?, ?, 0)",
-            (cid, f"name {cid}", f"question {cid} long enough"),
-        )
-    keeper.commit()
-    keeper.close()
+# ── core's stopped-loop seam ────────────────────────────────────────────────
 
 
 @pytest.fixture
-def live_paths(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Resolve paths from the bound context, not the per-suite overrides."""
-    monkeypatch.setattr(storage, "DB_PATH", None)
-    monkeypatch.setattr(storage, "RESEARCH_DIR", None)
-    monkeypatch.setattr(storage, "_MIGRATED_FOR", set())
+def seam_registry(monkeypatch: pytest.MonkeyPatch):
+    """Core's seam registry, restored afterwards (it is process-global)."""
+    from kiro_crew.apps import seams as core_seams
+
+    core_seams.provider(core_seams.SEAM_STOPPED_LOOP_TOMBSTONE)  # load the builtin providers first
+    monkeypatch.setattr(core_seams, "_providers", dict(core_seams._providers))
+    return core_seams
 
 
-@pytest.mark.usefixtures("live_paths")
-class TestLegacyDatabaseCopy:
-    def test_the_builtins_campaigns_are_copied_once_and_left_in_place(self, bound_ctx: FakeCtx) -> None:
-        legacy = storage.legacy_db_path()
-        _legacy_db_with_rows(legacy, "aaaa1111", "bbbb2222")
-        legacy_bytes = legacy.read_bytes()
-
-        conn = storage._get_db()
-        try:
-            ids = sorted(r["id"] for r in conn.execute("SELECT id FROM campaigns"))
-        finally:
-            conn.close()
-
-        assert ids == ["aaaa1111", "bbbb2222"]
-        assert storage.db_path().is_file()
-        assert legacy.read_bytes() == legacy_bytes  # nothing of the built-in's file changed
-        assert not storage.db_path().with_name("campaigns.db.migrating").exists()
-        # A row the migrated schema needs is filled by the normal migration.
-        assert {c["id"]: c for c in storage.list_campaigns()}["aaaa1111"]["status"] == "ready"
-
-    def test_an_existing_database_is_never_overwritten(self, bound_ctx: FakeCtx) -> None:
-        _legacy_db_with_rows(storage.legacy_db_path(), "aaaa1111")
-        mine = h.create_campaign({"question": "A question asked after the move happened"})
-        storage._MIGRATED_FOR.clear()
-        _legacy_db_with_rows(storage.legacy_db_path().with_name("other.db"), "cccc3333")
-        assert storage.migrate_legacy_db() is False
-        assert [c["id"] for c in storage.list_campaigns()] in ([mine["id"], "aaaa1111"], ["aaaa1111", mine["id"]])
-
-    def test_no_legacy_database_means_a_fresh_one(self, bound_ctx: FakeCtx) -> None:
-        assert storage.migrate_legacy_db() is False
-        assert storage.list_campaigns() == []
-
-    def test_a_failed_copy_raises_and_creates_no_database(
-        self, bound_ctx: FakeCtx, monkeypatch: pytest.MonkeyPatch
+class TestStoppedLoopSeam:
+    @pytest.mark.asyncio
+    async def test_on_startup_answers_the_seam_for_this_apps_worker_slots(
+        self, bound_ctx: FakeCtx, seam_registry: Any
     ) -> None:
-        _legacy_db_with_rows(storage.legacy_db_path(), "aaaa1111")
+        from backend import seams
 
-        def _broken() -> bool:
-            raise sqlite3.OperationalError("disk I/O error")
-
-        monkeypatch.setattr(storage, "migrate_legacy_db", _broken)
-        with pytest.raises(sqlite3.OperationalError):
-            storage._get_db()
-        assert not storage.db_path().exists()
-        monkeypatch.undo()
-        monkeypatch.setattr(storage, "DB_PATH", None)
-        monkeypatch.setattr(storage, "RESEARCH_DIR", None)
-        # The next open retries and succeeds.
-        assert [c["id"] for c in storage.list_campaigns()] == ["aaaa1111"]
-
-    def test_a_symlinked_legacy_file_is_not_followed(self, bound_ctx: FakeCtx, tmp_path: Path) -> None:
-        real = tmp_path / "somewhere" / "campaigns.db"
-        _legacy_db_with_rows(real, "aaaa1111")
-        legacy = storage.legacy_db_path()
-        legacy.parent.mkdir(parents=True, exist_ok=True)
+        await h.on_startup(bound_ctx)
         try:
-            legacy.symlink_to(real)
-        except (OSError, NotImplementedError):
-            pytest.skip("cannot create a symlink here")
-        assert storage.migrate_legacy_db() is False
+            provider = seam_registry.stopped_loop_tombstone()
+            assert isinstance(provider, seams.StoppedLoopTombstone)
+            assert provider.keeps_stopped_loop("research-abcd1234", "auto-research") is True
+            # A person's slot named the same way, or another app's, keeps nothing.
+            assert provider.keeps_stopped_loop("research-abcd1234", "") is False
+            assert provider.keeps_stopped_loop("research-abcd1234", "other-app") is False
+            assert provider.keeps_stopped_loop("research-xyz", "auto-research") is False
+        finally:
+            await h.on_shutdown(bound_ctx)
+        # It keeps answering once the app is off, as the built-in's did.
+        assert isinstance(seam_registry.stopped_loop_tombstone(), seams.StoppedLoopTombstone)
+
+    def test_a_gateway_without_the_seam_registers_nothing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from backend import seams
+
+        _without(monkeypatch, ("kiro_crew.apps.seams", "register"))
+        assert seams.register() is False
+
+    def test_a_seam_another_app_holds_is_left_to_it(
+        self, seam_registry: Any, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        from backend import seams
+
+        held = object()
+        seam_registry._providers[seam_registry.SEAM_STOPPED_LOOP_TOMBSTONE] = ("other-app", held)
+        with caplog.at_level(logging.WARNING, logger="kirocrew.app.auto-research"):
+            assert seams.register() is False
+        assert seam_registry.stopped_loop_tombstone() is held
+        assert "another app holds" in caplog.text
 
 
 # ── services without a seam ─────────────────────────────────────────────────
@@ -292,11 +252,61 @@ class TestServicesWithoutASeam:
         assert created == []
         assert "autonudge/state unavailable" in caplog.text
 
-    def test_a_gateway_that_cannot_say_enabled_reads_as_disabled(
+    def test_a_context_without_the_lifecycle_seam_reads_as_disabled(self, bound_ctx: FakeCtx) -> None:
+        bound_ctx.lifecycle = None
+        assert _host.is_app_enabled("auto-research") is False
+        _host.unbind()
+        assert _host.is_app_enabled("auto-research") is False
+
+    def test_the_enabled_switch_is_the_lifecycle_seams_answer(self, bound_ctx: FakeCtx) -> None:
+        answers = iter([True, False])
+        bound_ctx.lifecycle = SimpleNamespace(is_enabled=lambda: next(answers))
+        assert _host.is_app_enabled("auto-research") is True
+        assert _host.is_app_enabled("auto-research") is False
+
+    def test_another_apps_name_is_never_answered(self, bound_ctx: FakeCtx) -> None:
+        bound_ctx.lifecycle = SimpleNamespace(is_enabled=lambda: True)
+        assert _host.is_app_enabled("other-app") is False
+
+    def test_the_hosts_seam_reads_the_install_record(self, bound_ctx: FakeCtx) -> None:
+        """The real ``AppLifecycleSDK``: no install record in a test home is "off"."""
+        from kiro_crew.apps.lifecycle_sdk import AppLifecycleSDK
+
+        assert isinstance(bound_ctx.lifecycle, AppLifecycleSDK)
+        assert bound_ctx.lifecycle.app_name == "auto-research"
+        assert _host.is_app_enabled("auto-research") is False
+
+    def test_the_switch_is_never_read_from_the_private_manager(
+        self, bound_ctx: FakeCtx, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        asked: list[tuple[str, str]] = []
+        real = _host._host_attr
+        monkeypatch.setattr(_host, "_host_attr", lambda m, n: asked.append((m, n)) or real(m, n))
+        bound_ctx.lifecycle = SimpleNamespace(is_enabled=lambda: True)
+        assert _host.is_app_enabled("auto-research") is True
+        _host.capability_issues(bound_ctx)
+        assert [a for a in asked if a[0] == "kiro_crew.apps.manager"] == []
+
+    def test_trust_is_revoked_by_the_hosts_rule(self) -> None:
+        from kiro_crew.dashboard import chat_utils_slots
+
+        assert _host._host_attr(
+            "kiro_crew.dashboard.chat_utils_slots", "revoke_slot_trust"
+        ) is chat_utils_slots.revoke_slot_trust
+
+    def test_without_the_hosts_rule_the_trust_flag_is_still_cleared(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        _without(monkeypatch, ("kiro_crew.apps.manager", "is_app_enabled"))
-        assert _host.is_app_enabled("auto-research") is False
+        _without(monkeypatch, ("kiro_crew.dashboard.chat_utils_slots", "revoke_slot_trust"))
+        slot = SimpleNamespace(key="research-abcd1234", _trust=True)
+        _host.revoke_slot_trust(SimpleNamespace(_slots={}), slot)
+        assert slot._trust is False
+
+    def test_the_pending_reason_is_the_knowledge_stores(self) -> None:
+        from kiro_crew.knowledge import store
+
+        assert _host.PENDING_REASON_PROP == store.PENDING_REASON_PROP
+        assert _host.PENDING_REASON_IMPORT_BUDGET == store.PENDING_REASON_IMPORT_BUDGET
 
     def test_slot_history_key_without_the_host_rule_is_refused(
         self, monkeypatch: pytest.MonkeyPatch
@@ -425,3 +435,31 @@ class TestModelsRoute:
 def test_make_ctx_matches_the_gateways_data_dir_shape(tmp_path: Path) -> None:
     ctx = make_ctx(tmp_path)
     assert ctx.data_dir == tmp_path / "apps" / "auto-research" / "data"
+
+
+@pytest.mark.asyncio
+async def test_an_import_budget_deferral_parks_the_source_pending_with_its_reason(
+    tmp_path: Path,
+) -> None:
+    """The Sources list says why a source waits: the reason rides in the same take."""
+    from kiro_crew.knowledge.store import KnowledgeStore
+
+    from backend.campaign import publication
+
+    uri = str(tmp_path / "findings.md")
+    store = KnowledgeStore(str(tmp_path / "knowledge.db"))
+    try:
+        sid = await asyncio.to_thread(store.add_source, "findings", "file", uri)
+
+        class _Pipeline:
+            async def ingest_file(self, uri: str, *, source_id: str) -> None:
+                raise _host.ImportChunkBudgetError(10, 60.0, 10)
+
+        await publication._ingest_findings(_Pipeline(), store, uri, sid, "abcd1234")
+        source = await asyncio.to_thread(store.get_source_by_uri, uri)
+        assert source["sync_status"] == "pending"
+        props = source["properties"]
+        props = json.loads(props) if isinstance(props, str) else props
+        assert props[_host.PENDING_REASON_PROP] == _host.PENDING_REASON_IMPORT_BUDGET
+    finally:
+        store.close()

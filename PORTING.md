@@ -18,7 +18,11 @@ This repository was ported from Kiro Crew's built-in Research Lab at KiroCrew
   `test/test_owner_only_files.py`, `website/src/test/ResearchLabPage*.test.tsx`
   and `website/src/test/grillTreeModelCov80.test.ts`.
 
-Paths with a line number below refer to that commit. A **gap** is something the
+It was then brought up to KiroCrew `main` `6d07df11cf`: every change to those
+paths since the snapshot is ported (see "Wheel-copy changes since the snapshot"
+below), and the backend uses the App Kit level-2 seams that apply to it.
+
+Paths with a line number below refer to the snapshot commit. A **gap** is something the
 built-in gets from Kiro Crew that an external app has no public way to get yet;
 closing one is a Kiro Crew change (a generic, app-agnostic App Kit seam), not a
 change here.
@@ -57,11 +61,15 @@ change here.
 | The grill's `LLMPool` and the watchdog task stored on the aiohttp app (`handlers.py:1071`, `:1081`), `app.setdefault("_bg_tasks", set())` (`:1045`, `:931-934`) | Held in `handlers` (`_grill_llm_pool`, `_watchdog_task`, `_bg_tasks`) | The gateway's application is frozen once it serves; an app must not write to it. |
 | The watchdog read the dashboard state from the app it was started on | `on_startup` starts it on `ctx.http_app` (the same gateway application, granted because the manifest declares routes) | Without `ctx.http_app` no campaign is watched, and health says so. |
 | The watchdog kept polling while the app was disabled and suspended every research loop and its slot trust (`campaign/watchdog.py:395-412`) | `on_shutdown` suspends them (`watchdog._suspend_research_loops_while_disabled`) | This copy's watchdog stops with the app. The gateway calls `on_shutdown` before the enabled flag flips, and also on a reload or at exit, so it suspends every time; a suspended loop carries no stop reason, so the watchdog re-arms it on its first poll after the next start, exactly as after a re-enable (`tests/test_host_seams.py::TestShutdownSuspendsResearchLoops`). |
-| `campaigns.db` at `<data home>/apps/auto-research/campaigns.db` (`campaign/storage.py:50-54`) | `<data home>/apps/auto-research/data/campaigns.db` (`ctx.data_dir`), copied once from the old location on first open (`storage.migrate_legacy_db`) | An update or an adoption keeps only `data/` (and the app secret) of an app's directory; a file beside `app.json` is deleted with the old tree. The copy uses SQLite's online backup (rows still in the `-wal` file come along), never overwrites an existing database, never follows a symlinked file, leaves the old file where it was, and a failed copy raises (so no empty database takes its place) and is retried on the next open. See gap 1. |
+| `campaigns.db` at `<data home>/apps/auto-research/campaigns.db` (`campaign/storage.py:50-54`) | `<data home>/apps/auto-research/data/campaigns.db` (`ctx.data_dir`, `storage.data_db_path`), where the built-in now keeps it too (KiroCrew #32650) | An update or an adoption keeps only `data/` (and the app secret) of an app's directory; a file beside `app.json` is deleted with the old tree. `storage.py`'s location and copy code is the built-in's #32650 code: a database still beside `app.json` stays in use until a copy is published (`db_path`), is copied in once per process before the first connection opens (SQLite online backup, so rows still in the `-wal` come along; owner-only staging file; `PRAGMA quick_check`; published with a hard link, so a database already in `data/` is never replaced; a lock held on the old file for 5 s gives up), and the old file and its sidecars are removed once the copy is published. A link at the old name is an operator's redirection and stays in use. The built-in runs that copy from a startup hook on every start, enabled or not; this copy's hooks run only while the app is enabled, so it runs from the first `_get_db`. See gap 1. |
 | Absolute self-imports `kiro_crew.apps.builtins.auto_research.*` (`handlers.py:31-211`, every `campaign/*.py`), and the facade's dotted owner names (`handlers.py:213`) | Relative imports; `_CAMPAIGN = f"{__package__}.campaign"` | Hook files load into a synthetic package named after the app (App Kit `manifest-reference.md`, "Importing your own modules"); `tests/test_manifest_contract.py` loads the hooks through the gateway's own module loader. |
 | `kiro_crew.security.{redact,redact_credentials,redact_exfiltration_urls}` with an import-failure flag (`campaign/untrusted.py:17-25`) | `ctx.scrub.outbound(text).text` (`_host.scrub_text`) | The level-0 scrub seam: the gateway's active policy on top of the same baseline passes. No context, no scrubber, a scrubber that raises or returns no text: every string is masked (`[REDACTED]`), and a worker slot's title falls back to its key. The facade no longer has `redact_credentials` / `redact_exfiltration_urls`; it has `redact`. |
 | `sel().log_api_access(caller="auto_research", operation=…, **extra)` (`campaign/lifecycle.py:76-97`) | `ctx.audit.record(operation, outcome, resources=…)` through the same `lifecycle._audit` (`_host.audit_log`) | The level-0 audit seam. Rows now read caller `app:auto-research` and operation `auto-research.<verb>` (the built-in wrote `auto_research` / `<verb>`); the extra fields (`parent=`, `slug=`, `source_id=`) are appended to `resources`. No audit seam is a logged warning, as a missing SEL module was. |
-| `kiro_crew.apps.manager.is_app_enabled` (`campaign/watchdog.py:37`) | `_host.is_app_enabled`; `False` when the gateway cannot say | A watchdog that cannot tell stands down rather than drives loops. |
+| `kiro_crew.apps.manager.is_app_enabled` (`campaign/watchdog.py:37`) | `_host.is_app_enabled`, which reads `ctx.lifecycle.is_enabled()` of the bound context (App Kit level 2, KiroCrew #32648); `False` with no lifecycle seam, and for any name but this app's | The public seam for the app's own switch, so no private `apps.manager` name is reached. A watchdog that cannot tell stands down rather than drives loops, and `register_routes` reports it. |
+| `slot._trust = False` and, since KiroCrew #30864, `kiro_crew.dashboard.chat_utils_slots.revoke_slot_trust` (`campaign/watchdog.py`, the disable suspension and the 24 h trust expiry) | `_host.revoke_slot_trust`: the host's rule, which also clears the `approval_policy` turn admission cached from the flag (the spawn gate and each child's tool approval read that) and the flag on slots sharing the session; on a host without it the flag alone, as that host's built-in did | A sub-agent of a worker must stop auto-approving once the trust ends. |
+| `session_directive_apply_monitor` importing the built-in's `is_owned_research_slot`; since KiroCrew #28338 the built-in's `seams.py` registering it as core's `stopped_loop_tombstone` provider | `backend/seams.py`, registered from `on_startup` through `_host.register_stopped_loop_tombstone` (`kiro_crew.apps.seams.register`) | Core asks the seam, never the app. See gap 2. |
+| `kiro_crew.atomic_write.atomic_write` (`subquestion_queue.save_queue`, KiroCrew #28529) | `_fs.atomic_write`: the host's, else a unique temp file and one `os.replace` | The unique staging name keeps two writers of one campaign apart; the host's also retries the Windows sharing-violation window. |
+| `kiro_crew.knowledge.store.{PENDING_REASON_PROP,PENDING_REASON_IMPORT_BUDGET}` (`campaign/publication.py`, KiroCrew #32528) | `_host.PENDING_REASON_PROP` / `_host.PENDING_REASON_IMPORT_BUDGET`, the host's values or their current literals | A source parked `pending` by the import budget says why, in the same write (`store.merge_source_properties`). |
 | `kiro_crew.llm_helpers._extract_json_of_type` (private, `campaign/grill.py:16`) | `backend/_json.py`, the same function | Pure, no policy; the grill's tests pin it. |
 | `kiro_crew.dashboard.handlers._shared.string_field_error` (`handlers.py:487`, `:962`) | `handlers.string_field_error`, the same 400 | A few lines. |
 | `kiro_crew.atomic_write.read_json_or`, `kiro_crew.owner_only_files.*`, `kiro_crew.sqlite_wal.enable_wal` (`campaign/storage.py:23-32`, `subquestion_queue.py:34`, `campaign/workflow_mode.py:35`) | `backend/_fs.py`: the gateway's own helper when it has one, else a restatement | See gap 6. |
@@ -100,6 +108,9 @@ that needs it is refused or degraded, never run some other way, and
 | `kiro_crew.knowledge.ingestion.ImportChunkBudgetError` | `campaign/publication.py:28` | A stand-in that nothing raises. |
 | `kiro_crew.on_loop_db.OnLoopDBGuard` | `campaign/storage.py:25` | A guard that logs an on-loop open (it cannot raise: it has no strict switch to read). |
 | `kiro_crew.dashboard.handlers.api_models` | (new, `GET /models`) | The picker offers only "Default (inherit)". |
+| `kiro_crew.dashboard.chat_utils_slots.revoke_slot_trust` | `campaign/watchdog.py` (disable suspension, 24 h trust expiry) | The trust flag alone is cleared. |
+| `kiro_crew.apps.seams.{register,SEAM_STOPPED_LOOP_TOMBSTONE}` | `seams.py`, from `on_startup` | Nothing is registered; a gateway without the seam answers from its own built-in copy of the predicate. |
+| `kiro_crew.knowledge.store.{PENDING_REASON_PROP,PENDING_REASON_IMPORT_BUDGET}` | `campaign/publication.py` | The host's current literals. |
 
 One more host behaviour shows up only when the hooks run in a real gateway:
 the gateway executes `handlers.py` once per hook entry (`routes`, `on_startup`,
@@ -110,32 +121,29 @@ module loader and checks it).
 
 ## Remaining gaps
 
-1. **Adoption deletes the built-in's campaigns database.** The built-in kept
-   `campaigns.db` (and its `-wal` / `-shm`) directly in the record's directory,
-   `<data home>/apps/auto-research/` (`campaign/storage.py:50-54`). Adoption
-   swaps that directory through `update_app`, which carries over only `data/`
-   and `.app_secret` (Kiro Crew `apps/manager_install.py`, the "Preserve data/
-   directory" step, and `apps/manager_adopt.py`), so every existing campaign
-   row would be deleted with the retired tree before this copy's
-   `migrate_legacy_db` could read it. The research workspaces under
-   `workspace/research/` survive (they are outside the app directory), but the
-   list, statuses, settings and report links are in the database. **The
-   adoption pin for `auto-research` must not be added until Kiro Crew carries
-   those files**: either an app-agnostic rule in the update/adoption swap that
-   preserves files a manifest names (for example a `data.legacyFiles` list), or
-   a built-in release that moves its database into `data/` first. Once the
-   file reaches `data/` under either name, nothing more is needed here: a
-   database already in `data/` is used as is.
-2. **Core still imports the app.** `dashboard/session_directive_apply_monitor.py:19`
-   imports `is_owned_research_slot` from the built-in at gateway boot (used at
-   `:934` to keep an autonudge row as an `autonudge_stop` tombstone for a
-   Research Lab worker instead of removing it), with a `TYPE_CHECKING` import in
-   `dashboard/session_directive_apply.py:459-460`. This copy's worker slots carry
-   the same keys (`research-<id>`) and the same app provenance
-   (`auto-research`), so the built-in's predicate keeps recognising them while
-   Kiro Crew ships it. Removing the built-in needs a generic predicate in core
-   (an app-owned slot whose app asks for tombstones, for example a
-   manifest-declared slot prefix) and this app declaring it.
+1. **Closed: the campaigns database is in `data/`.** The built-in kept
+   `campaigns.db` beside `app.json`, which an adoption swap retires with the
+   old tree. KiroCrew #32650 (on `main`) moved the built-in's database into
+   `data/` itself, copied on every gateway start from a startup hook that runs
+   enabled or not, and this copy uses the same location and the same copy
+   code. Two things remain on the Kiro Crew side, not here: the copy reaches
+   only users who start a release carrying #32650 before the release whose
+   adoption swap runs, and `test/test_auto_research_db_location.py::
+   test_auto_research_is_not_pinned_while_the_swap_can_retire_its_old_database`
+   fails while `adoption-pins.json` has an `auto-research` row, until a
+   swap-side refusal (or carry) for a `campaigns.db` still beside `app.json`
+   lands with that row (app-kit-platform.md, "What the swap keeps is `data/`").
+2. **Closed: core no longer imports the app.** KiroCrew #28338 replaced the
+   monitor's import of `is_owned_research_slot` with core's app-keyed
+   `stopped_loop_tombstone` seam (`kiro_crew.apps.seams`). This copy answers it
+   from `backend/seams.py`, registered from `on_startup`, with the same
+   predicate on the same keys and provenance. One difference while it is the
+   only provider: a registration lives for the gateway process, so after a
+   restart with the app switched off nothing answers until the app is next
+   enabled, where the built-in's provider loaded on the first lookup whether
+   or not the app was on. While the wheel still ships the built-in, its
+   `seams.py` answers for the same app id and the same slots, so no adopted
+   user sees a difference.
 3. **The research agent is core's.** The worker runs on `kirocrew-research`,
    a service agent Kiro Crew materializes on every boot from its own prompt and
    tool set (`agent_materialization/service_agents.py:446-462`,
@@ -161,7 +169,17 @@ module loader and checks it).
    AutoNudge loop API scoped to the app's own slots, a workflow-start API, and
    knowledge-ingest and artifact-publish APIs. Until then a refactor of any of
    these in Kiro Crew can break this app silently; `minKiroCrewVersion` and the
-   capability report are the only guards.
+   capability report are the only guards. Two level-2 seams now cover part of
+   this, and neither can be adopted here yet: `ctx.auto_approve` (a bounded,
+   audited auto-approve grant on an app-owned worker slot, KiroCrew #32667)
+   would replace `slot._trust` and the 24 h cap, and `ctx.turns` (KiroCrew
+   #32659) runs agent turns on app-owned sessions. Each is granted only by a
+   manifest permission (`permissions.workerAutoApprove`,
+   `permissions.agentTurns`) the built-in's `app.json` does not declare, and an
+   adopted manifest may not declare more than the built-in's. Using either
+   needs Kiro Crew to declare it on the built-in first, in a release before
+   the pin; `ctx.turns` also has no AutoNudge loop, so it does not replace the
+   worker loop by itself.
 6. **File helper drift.** `backend/_fs.py` uses the gateway's
    `owner_only_files`, `atomic_write.read_json_or` and `sqlite_wal.enable_wal`
    when present. Its fallbacks keep `0700` directories and `0600` files from
@@ -195,7 +213,11 @@ module loader and checks it).
     `test/test_core_path_redact_before_bound.py:181`,
     `test/link_screen_sites.py:68-70` and `scripts/check_sync_io_in_async.py:27`
     name the built-in. They go when the built-in does; the user doc and the
-    spec belong in this repository then.
+    spec belong in this repository then. On KiroCrew `main` `6d07df11cf` they all still stand
+    (with comment-only mentions in `agent.py`, `autonudge_service/mutations.py`,
+    `history_offload.py`, `knowledge/llm_pool.py` and
+    `slack/gateway_runtime/result_egress.py`), and none of them is imported by
+    or reaches this copy.
 12. **Owner gate.** The built-in's routes required an authenticated dashboard
     caller (`_require_auth`), not the dashboard owner, and this copy keeps that:
     `ctx.require_owner` is not called. Tightening it would change who may run a
@@ -221,6 +243,7 @@ has no streaming call). Strings are `t()` over `ui/i18n/<locale>.json` for all
 | `components/ui` `Btn`, `Clickable`, `Modal`, `MarkdownRenderer`, `ErrorNotice` | The same components from `@kirocrew/app-sdk/ui` |
 | `components/SimpleSelect` | `Select` from `@kirocrew/app-sdk/ui` (a native `<select>` on an older host) |
 | `hooks/useImeGuard` | `useImeGuard` from `@kirocrew/app-sdk` |
+| `components/RadioChipGroup` (`RadioChipGroup`, `radioChip`) | `ui/src/RadioChipGroup.tsx`, the dashboard's file unchanged (the SDK's UI package has no radio group) |
 | `hooks/useAvailableModels` | `ui/src/models.ts`, over the app's `GET /models` (gap 4) |
 | `utils/clipboard.copyToClipboard` | `ui/src/clipboard.ts`: the async clipboard API, else `execCommand('copy')`; it drops the dashboard's embedded-pane relay |
 | `i18n/t.i18nT` with keys in the dashboard's catalogs | `ui/src/i18n.ts` over the app's own catalogs |
@@ -229,29 +252,57 @@ has no streaming call). Strings are `t()` over `ui/i18n/<locale>.json` for all
 
 | Built-in test | Here | Change |
 |---|---|---|
-| `test/test_auto_research*.py`, `test/test_subquestion_queue.py`, the two helper modules, the built-in's `tests/test_windows_support.py` | `tests/`, same names | Module paths are `backend.*`. Registration goes through `tests/harness.py` (`mount`), which serves `register_routes(ctx)` and the two lifecycle hooks the way the gateway does on a test's own application. `tests/conftest.py` pins the data home, binds a context with the host's real `ScrubSDK` and `AuditSDK`, and replaces `LLMPool` with an inert stand-in so no test starts a model process. Kiro Crew (one pinned public commit) is a test dependency, so the AutoNudge, artifact, workflow-validator and owner-only-file collaborators are the real ones. |
+| `test/test_auto_research*.py`, `test/test_subquestion_queue.py`, the two helper modules, the built-in's `tests/test_windows_support.py` | `tests/`, same names | Module paths are `backend.*`. Registration goes through `tests/harness.py` (`mount`), which serves `register_routes(ctx)` and the two lifecycle hooks the way the gateway does on a test's own application. `tests/conftest.py` pins the data home, binds a level-2 context with the host's real `ScrubSDK`, `AuditSDK` and `AppLifecycleSDK`, and replaces `LLMPool` with an inert stand-in so no test starts a model process. Kiro Crew (one pinned public commit) is a test dependency, so the AutoNudge, artifact, workflow-validator and owner-only-file collaborators are the real ones. |
 | `test_auto_research_campaign_contract.py` | same | The identity table names `backend._host` / `_fs` / `_compat` / `_json` as each collaborator's owner, plus a table proving they are the gateway's own objects; the route table is the record list (no HEAD twins, plus `GET /models`); registration and the lifecycle hooks are tested as hooks; the log name is the app's. |
 | `test_auto_research_facade.py` | same | The layering checks resolve relative imports first; the create-patch scan covers `tests/`. Dropped: `test_the_mirrored_owner_ratchet_sees_the_facade`, which imports a Kiro Crew repository-wide ratchet module. |
 | `test_auto_research_onloop_db.py` | same | The coroutine inventory names the hooks instead of `_start_watchdog` / `_stop_watchdog`. |
 | `test_auto_research_handlers_coverage_campaign_routes.py` | same | Ingestion tasks are drained from `handlers._bg_tasks`. |
 | `test_auto_research.py` | same | The grill's fake pool replaces `handlers._grill_llm_pool`. |
 | `test_windows_support.py` | same | The manifest is validated by the gateway's typed loader from the repository root; the built-in discovery assertion is gone. |
+| `test_auto_research_db_location.py` (KiroCrew #32650) | same | Paths come from the bound context's `data_dir`. Dropped: the pin-table check (`adoption-pins.json` is Kiro Crew's) and the startup-hook case (this copy's hooks run only while enabled; the first open copies instead, which a case of its own pins). |
 | Research Lab cases of `test/test_artifacts_store_off_loop.py`, `test/test_owner_only_files.py` | `tests/test_artifacts_store_off_loop.py`, `tests/test_owner_only_files.py` | The owner-only cases also run with the gateway's helpers removed, against `_fs`'s fallbacks. |
-| (none) | `tests/test_host_seams.py`, `tests/test_no_host_imports.py`, `tests/test_manifest_contract.py` | Every fail-closed path above, the capability report, the database copy, the shutdown suspension, `GET /models`; only the two shims reach `kiro_crew`, through `importlib`; manifest parity, the bundle's imports, the hooks loading through the gateway's module loader, no hardcoded model id, an adoptable tree. |
+| (none) | `tests/test_host_seams.py`, `tests/test_no_host_imports.py`, `tests/test_manifest_contract.py` | Every fail-closed path above, the capability report, the lifecycle switch, the trust revocation, the stopped-loop seam registration, the pending reason, the shutdown suspension, `GET /models`; only the two shims reach `kiro_crew`, through `importlib`; manifest parity, the bundle's imports, the hooks loading through the gateway's module loader, no hardcoded model id, an adoptable tree. |
 | `website/src/apps/auto-research/*.test.tsx`, `website/src/test/ResearchLabPage*.test.tsx` | `ui/tests/` | Run by vitest with stand-ins for the host SDK (`ui/tests/stubs/`), no Redux store or router. The select cases drive the host `Select` stand-in (a native `<select>`) instead of the dashboard's Radix picker. |
 | `website/src/test/grillTreeModelCov80.test.ts` | `ui/tests/grillTreeModel.test.ts` | The 19 reducer and selector cases, unchanged but for the import path (`ui/src/grillTreeModel.ts` is byte-identical to the built-in's). |
-| (none) | `ui/tests/externalSeams.test.tsx` | Catalog coverage and fallback, the scoped transport and its error mapping, the model list, the stream path, the clipboard fallback, the older-host `Select`. |
+| `website/src/apps/auto-research/{GrillTree.ariaExpanded,GrillTree.expandFocus,ResearchLabPage.reportToggle}.test.tsx`, `stateLabelKeys.test.ts` | `ui/tests/`, same names | Import paths; the label-key check reads this app's catalogs. The interface-language cases of `ResearchLabPageCoverage.test.tsx` switch the stand-in SDK's locale (`stubLocale`) instead of `i18next`. |
+| (none) | `ui/tests/externalSeams.test.tsx` | Catalog coverage (a plural key carries the forms its locale names, so key sets are compared with the form stripped) and fallback, the scoped transport and its error mapping, the model list, the stream path, the clipboard fallback, the older-host `Select`. |
 
 Core tests that use `auto-research` only as a sample app name or slot key
 (governance, autonudge, slot sync, token auth and the others listed in
 Kiro Crew's own inventory) stay in Kiro Crew with a neutral fixture.
+
+## Wheel-copy changes since the snapshot
+
+Every commit on KiroCrew `main` between `4bb268b4e9` and `6d07df11cf` that
+touched the built-in's backend, page, strings or tests, and where it landed here:
+
+| KiroCrew | Change | Here |
+|---|---|---|
+| #28167 | black-format `workflow_template.py` | `backend/workflow_template.py` |
+| #28229 | test helper: the autonudge default through core's `_floor_monkeypatch` | not ported: that fixture is Kiro Crew's test floor; the helper keeps `monkeypatch` |
+| #28567 | an emergent proposal with an odd priority no longer fails the round; the file is consumed only once the queue is saved | `campaign/exploration.py`, `subquestion_queue.py`, their tests |
+| #28319 | watchdog test: removal order, bounded awaits, TTL clock | `tests/test_auto_research_watchdog.py` |
+| #28676 | counts and labels translated inside catalog strings (`cycles_count`, `estimate`, `findings_tally`, `suggested_from_sub_questions`) | `ui/src/ResearchLabPage.tsx`, `ui/i18n/*.json`, `ui/tests/ResearchLabPageCoverage.test.tsx` |
+| #28338 | core asks the `stopped_loop_tombstone` seam; page tests moved beside the page | `backend/seams.py` (gap 2), `ui/tests/stateLabelKeys.test.ts` |
+| #29024 | shorter comments in `lifecycle.py` / `watchdog.py` | same files |
+| #29224 | tests pin UTF-8 on text reads and writes | the three test files |
+| #28529 | `save_queue` through `atomic_write` | `backend/subquestion_queue.py`, `_fs.atomic_write` |
+| #30864 | trust expiry and disable clear the cached approval policy too | `campaign/watchdog.py`, `_host.revoke_slot_trust`, two tests |
+| #31028 | the grill tree's collapse chevron reports `aria-expanded` | `ui/src/GrillTree.tsx`, `ui/tests/GrillTree.ariaExpanded.test.tsx` |
+| #32046 | the report toggle is a disclosure (`aria-expanded`, `aria-controls`) | `ui/src/ResearchLabPage.tsx`, `ui/tests/ResearchLabPage.reportToggle.test.tsx` |
+| #32650 | the campaigns database lives in `data/` | `campaign/storage.py`, `tests/test_auto_research_db_location.py` (gap 1) |
+| #32774 | the execution-mode cards are a radio group | `ui/src/ResearchLabPage.tsx`, `ui/src/RadioChipGroup.tsx`, the wizard tests |
+| #32528 | an import-budget deferral records why the source is pending | `campaign/publication.py`, `_host.PENDING_REASON_*` |
+| #28661 | report exports are serialized per campaign, so one campaign gets one artifact | `campaign/publication.py`, `handlers.py`, its test |
+| #32992 | the grill tree's Expand keeps focus while it runs | `ui/src/GrillTree.tsx`, `ui/tests/GrillTree.expandFocus.test.tsx` |
 
 ## What Kiro Crew keeps doing
 
 The release that adds adoption still ships the built-in. A user's built-in
 record moves onto this repository at the commit Kiro Crew pins, on the restart
 after the tree is fetched and verified; a record that cannot move keeps running
-the built-in copy, unchanged. For this app the pin waits on gap 1.
+the built-in copy, unchanged. For this app the pin also waits on the Kiro Crew
+side of gap 1 (a swap-side refusal or carry for an old `campaigns.db`).
 
 ## Release handoff: one commit for both pins
 
@@ -260,7 +311,8 @@ commit must be the ported tree.
 
 1. Call the full 40-hex SHA of this repository's `main` `C`
    (`git rev-parse HEAD`).
-2. In the Kiro Crew release PR that adds adoption, once gap 1 is closed, run
+2. In the Kiro Crew release PR that adds adoption, once the Kiro Crew side of
+   gap 1 has landed, run
    `python3 scripts/adoption_pin.py compute <this URL> C` and add the row it
    prints (commit, `treeSha256`, `archiveSha256`, `legacyNav`) to
    `src/kiro_crew/apps/adoption-pins.json`; then

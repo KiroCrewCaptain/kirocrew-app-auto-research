@@ -32,9 +32,20 @@ describe('the string catalogs', () => {
   it('ships every dashboard locale with the same keys as English', () => {
     const files = readdirSync(I18N).filter(f => f.endsWith('.json')).sort()
     expect(files).toEqual(['bn', 'de', 'en', 'es', 'fr', 'hi', 'it', 'ja', 'ko', 'pt', 'ru', 'zh-CN'].map(l => `${l}.json`))
-    const english = flatten(CATALOGS.en as Record<string, unknown>).sort()
+    // A plural key carries the forms its locale's rules name (`_one`, `_few`,
+    // `_many`, `_other`), so the sets are compared with the form stripped; every
+    // plural key keeps an `_other`, the lookup's last resort.
+    const PLURAL = /_(zero|one|two|few|many|other)$/
+    const keySet = (locale: string) => {
+      const keys = flatten(CATALOGS[locale] as Record<string, unknown>)
+      for (const stem of new Set(keys.filter(k => PLURAL.test(k)).map(k => k.replace(PLURAL, '')))) {
+        expect(keys, `${locale}: ${stem}`).toContain(`${stem}_other`)
+      }
+      return [...new Set(keys.map(k => k.replace(PLURAL, '')))].sort()
+    }
+    const english = keySet('en')
     for (const locale of Object.keys(CATALOGS)) {
-      expect(flatten(CATALOGS[locale] as Record<string, unknown>).sort(), locale).toEqual(english)
+      expect(keySet(locale), locale).toEqual(english)
     }
   })
 
