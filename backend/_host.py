@@ -295,6 +295,18 @@ def revoke_slot_trust(state: Any, slot: Any) -> None:
     slot._trust = False
 
 
+def effective_session_key(slot: Any) -> str | None:
+    """The session a chat slot's turns run on, by the gateway's own rule.
+
+    ``None`` on a gateway without it; the caller then stores no session policy,
+    as that gateway's built-in did.
+    """
+    fn = _host_attr("kiro_crew.dashboard.chat_utils_slots", "effective_session_key")
+    if not callable(fn):
+        return None
+    return str(fn(slot))
+
+
 def register_stopped_loop_tombstone(provider: Any) -> bool:
     """Answer core's ``stopped_loop_tombstone`` seam for this app; whether it took.
 

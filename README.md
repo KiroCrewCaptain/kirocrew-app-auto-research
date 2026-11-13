@@ -178,6 +178,14 @@ around to answer the agent.
 Only one campaign runs at a time. Open the one under **ACTIVE** and **Pause**,
 **Stop** or wait for it to finish.
 
+**A campaign shows “Ready” and “Not started yet.”**
+It was saved but never started, for example when starting it failed. Open it
+and choose **Start Campaign**. While another campaign is running the button is
+greyed out and says why; start this one when that one is done.
+
+**Exporting or adding to Knowledge failed.**
+The reason shows under the button. Close it with the ✕ beside it and try again.
+
 **“Grill unavailable — add sub-questions manually below.”**
 The question planner could not get an answer from the model in time. Type your
 sub-questions in the box below instead, or try **Grill me →** again later; the
@@ -200,6 +208,11 @@ default one. Pick another model next time, or leave **Default (inherit)**.
 That is on purpose: the agent's tool approval lasts at most 24 hours per run.
 Choose **Resume** to approve it again.
 
+**The campaign says “Auto-approval was turned off. Resume to re-authorize and continue.”**
+Someone turned off the research agent's tool approval, for example with the
+chat's **Trust** switch. Research Lab does not turn it back on by itself.
+Choose **Resume** when you want the campaign to continue.
+
 ## Development
 
 This repository is the externally packaged form of the `auto-research` app that
@@ -210,7 +223,8 @@ Kiro Crew does that, it keeps running its built-in copy, and nothing here
 changes what they run. [PORTING.md](PORTING.md) lists every place this copy
 differs from the built-in and why, what Kiro Crew still has no public seam
 for, and what Kiro Crew must land with the pin (a refusal at the adoption swap
-for a campaigns database still outside the folder an adoption keeps).
+for a campaigns database still outside the folder an adoption keeps,
+kirodotdev/KiroCrew#36321).
 
 | Path | What it is |
 |---|---|

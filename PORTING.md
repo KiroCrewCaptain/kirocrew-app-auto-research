@@ -18,7 +18,7 @@ This repository was ported from Kiro Crew's built-in Research Lab at KiroCrew
   `test/test_owner_only_files.py`, `website/src/test/ResearchLabPage*.test.tsx`
   and `website/src/test/grillTreeModelCov80.test.ts`.
 
-It was then brought up to KiroCrew `main` `6d07df11cf`: every change to those
+It was then brought up to KiroCrew `main` `4e4bba39ea`: every change to those
 paths since the snapshot is ported (see "Wheel-copy changes since the snapshot"
 below), and the backend uses the App Kit level-2 seams that apply to it.
 
@@ -29,7 +29,10 @@ change here.
 
 ## What carried over unchanged
 
-- `app.json` `name` (`auto-research`), `version` (`0.1.0`), `author`,
+- `app.json` `name` (`auto-research`), `version` (`0.1.1`: the built-in's
+  `0.1.0` plus this repository's port release; Kiro Crew's pin row moves the
+  built-in's manifest to the same version, since a first adoption pin's
+  version must equal the built-in's), `author`,
   `permissions` (`api: ["/api/apps/auto-research"]`, nothing else), `platform`,
   `defaultEnabled: false`, and every display field (`displayName`,
   `description`, `tags`, `highlights`, `useCases`, `configuration`).
@@ -108,7 +111,8 @@ that needs it is refused or degraded, never run some other way, and
 | `kiro_crew.knowledge.ingestion.ImportChunkBudgetError` | `campaign/publication.py:28` | A stand-in that nothing raises. |
 | `kiro_crew.on_loop_db.OnLoopDBGuard` | `campaign/storage.py:25` | A guard that logs an on-loop open (it cannot raise: it has no strict switch to read). |
 | `kiro_crew.dashboard.handlers.api_models` | (new, `GET /models`) | The picker offers only "Default (inherit)". |
-| `kiro_crew.dashboard.chat_utils_slots.revoke_slot_trust` | `campaign/watchdog.py` (disable suspension, 24 h trust expiry) | The trust flag alone is cleared. |
+| `kiro_crew.dashboard.chat_utils_slots.revoke_slot_trust` | `campaign/agent_mode.release_worker_trust`, for the watchdog's disable suspension, 24 h trust expiry and a person's revoke | The trust flag alone is cleared. |
+| `kiro_crew.dashboard.chat_utils_slots.effective_session_key` | `campaign/agent_mode.grant_worker_trust` | The flag is set and no session approval policy is stored, as a gateway without it did. |
 | `kiro_crew.apps.seams.{register,SEAM_STOPPED_LOOP_TOMBSTONE}` | `seams.py`, from `on_startup` | Nothing is registered; a gateway without the seam answers from its own built-in copy of the predicate. |
 | `kiro_crew.knowledge.store.{PENDING_REASON_PROP,PENDING_REASON_IMPORT_BUDGET}` | `campaign/publication.py` | The host's current literals. |
 
@@ -126,13 +130,15 @@ module loader and checks it).
    old tree. KiroCrew #32650 (on `main`) moved the built-in's database into
    `data/` itself, copied on every gateway start from a startup hook that runs
    enabled or not, and this copy uses the same location and the same copy
-   code. Two things remain on the Kiro Crew side, not here: the copy reaches
-   only users who start a release carrying #32650 before the release whose
-   adoption swap runs, and `test/test_auto_research_db_location.py::
-   test_auto_research_is_not_pinned_while_the_swap_can_retire_its_old_database`
-   fails while `adoption-pins.json` has an `auto-research` row, until a
-   swap-side refusal (or carry) for a `campaigns.db` still beside `app.json`
-   lands with that row (app-kit-platform.md, "What the swap keeps is `data/`").
+   code. The copy reaches only users who start a release carrying #32650
+   before the release whose adoption swap runs, so Kiro Crew's swap refuses a
+   record with anything beside `app.json` it would retire
+   (kirodotdev/KiroCrew#36321, app-kit-platform.md, "What the swap keeps is
+   `data/`"): such a record keeps running the built-in, whose startup hook
+   moves the database, and the next start adopts. That refusal replaces
+   `test/test_auto_research_db_location.py::
+   test_auto_research_is_not_pinned_while_the_swap_can_retire_its_old_database`,
+   so the `auto-research` pin row lands only on a Kiro Crew `main` carrying it.
 2. **Closed: core no longer imports the app.** KiroCrew #28338 replaced the
    monitor's import of `is_owned_research_slot` with core's app-keyed
    `stopped_loop_tombstone` seam (`kiro_crew.apps.seams`). This copy answers it
@@ -273,7 +279,7 @@ Kiro Crew's own inventory) stay in Kiro Crew with a neutral fixture.
 
 ## Wheel-copy changes since the snapshot
 
-Every commit on KiroCrew `main` between `4bb268b4e9` and `6d07df11cf` that
+Every commit on KiroCrew `main` between `4bb268b4e9` and `4e4bba39ea` that
 touched the built-in's backend, page, strings or tests, and where it landed here:
 
 | KiroCrew | Change | Here |
@@ -295,6 +301,11 @@ touched the built-in's backend, page, strings or tests, and where it landed here
 | #32528 | an import-budget deferral records why the source is pending | `campaign/publication.py`, `_host.PENDING_REASON_*` |
 | #28661 | report exports are serialized per campaign, so one campaign gets one artifact | `campaign/publication.py`, `handlers.py`, its test |
 | #32992 | the grill tree's Expand keeps focus while it runs | `ui/src/GrillTree.tsx`, `ui/tests/GrillTree.expandFocus.test.tsx` |
+| #29683 | a campaign created but never started offers Start, blocked while another campaign is active, and says "Not started yet." | `ui/src/ResearchLabPage.tsx`, `ui/i18n/*.json` (`not_started_yet`), `ui/tests/ResearchLabPageCoverage.test.tsx` (the test's dashboard query client is a `QueryClient` with the same `staleTime: Infinity`) |
+| #28544 | a verified finding, the cycle cap or stagnation ends the run through the same settlement as the idle path, so the worker loop stops | `campaign/agent_mode.py`, `campaign/watchdog.py` (the 24 h revoke goes through `_host.revoke_slot_trust`), `tests/test_auto_research_watchdog.py` |
+| #34815 | a person's revoke of the worker's trust parks the campaign instead of being granted back | `campaign/agent_mode.py` (`grant_worker_trust`, `worker_trust_revoked`, `release_worker_trust`), `campaign/watchdog.py`, `tests/test_auto_research_handlers_coverage.py` |
+| #30734 | export and add-to-knowledge failures are dismissible notices beside their buttons, not native alerts | `ui/src/ResearchLabPage.tsx`, `ui/tests/ResearchLabPageCoverage.test.tsx` |
+| #35029 | a worker grant also stores `approval_policy="auto"` on the slot's session | `campaign/agent_mode.py`, through `_host.effective_session_key` (no policy stored on a gateway without it), `tests/test_auto_research_handlers_coverage.py`, `tests/test_auto_research_worker_loop.py`, `tests/test_host_seams.py` |
 
 ## What Kiro Crew keeps doing
 
@@ -302,7 +313,8 @@ The release that adds adoption still ships the built-in. A user's built-in
 record moves onto this repository at the commit Kiro Crew pins, on the restart
 after the tree is fetched and verified; a record that cannot move keeps running
 the built-in copy, unchanged. For this app the pin also waits on the Kiro Crew
-side of gap 1 (a swap-side refusal or carry for an old `campaigns.db`).
+side of gap 1 (kirodotdev/KiroCrew#36321, the swap's refusal of an old
+`campaigns.db` beside `app.json`).
 
 ## Release handoff: one commit for both pins
 
