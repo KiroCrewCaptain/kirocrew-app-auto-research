@@ -302,6 +302,39 @@ class TestServicesWithoutASeam:
         _host.revoke_slot_trust(SimpleNamespace(_slots={}), slot)
         assert slot._trust is False
 
+    def test_a_worker_grant_stores_the_policy_on_the_hosts_session_key(self) -> None:
+        from kiro_crew.dashboard import chat_utils_slots
+
+        from backend.campaign import agent_mode
+
+        assert _host._host_attr(
+            "kiro_crew.dashboard.chat_utils_slots", "effective_session_key"
+        ) is chat_utils_slots.effective_session_key
+        stored: list[tuple[str, str]] = []
+        state = SimpleNamespace(
+            sessions=SimpleNamespace(set_approval_policy=lambda k, p: stored.append((k, p)))
+        )
+        slot = SimpleNamespace(key="research-abcd1234", linked_session_key="", _trust=False)
+        agent_mode.grant_worker_trust(state, slot.key, slot)
+        assert slot._trust is True
+        assert stored == [(chat_utils_slots.effective_session_key(slot), "auto")]
+        agent_mode._held_worker_trust.pop(slot.key, None)
+
+    def test_without_the_hosts_session_key_a_grant_stores_no_policy(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from backend.campaign import agent_mode
+
+        _without(monkeypatch, ("kiro_crew.dashboard.chat_utils_slots", "effective_session_key"))
+        stored: list[tuple[str, str]] = []
+        state = SimpleNamespace(
+            sessions=SimpleNamespace(set_approval_policy=lambda k, p: stored.append((k, p)))
+        )
+        slot = SimpleNamespace(key="research-abcd1234", _trust=False)
+        agent_mode.grant_worker_trust(state, slot.key, slot)
+        assert slot._trust is True and stored == []
+        agent_mode._held_worker_trust.pop(slot.key, None)
+
     def test_the_pending_reason_is_the_knowledge_stores(self) -> None:
         from kiro_crew.knowledge import store
 
