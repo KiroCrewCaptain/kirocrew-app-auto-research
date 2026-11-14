@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from auto_research_helpers import isolate_fixture  # noqa: F401 - fixture
+from synthetic_credentials_helpers import github_classic
 
 from backend.handlers import (
     CampaignStatus,
@@ -1112,9 +1113,10 @@ class TestWatchdogFindingHelpers:
         from backend import handlers as h
 
         p = tmp_path / "cycle_001.json"
-        p.write_text(json.dumps({"summary": "leaked AKIAIOSFODNN7EXAMPLE here"}))
+        secret = github_classic(seed=92)
+        p.write_text(json.dumps({"summary": f"leaked {secret} here"}))
         out = h._read_finding_file(p)
-        assert "AKIAIOSFODNN7EXAMPLE" not in json.dumps(out)
+        assert secret not in json.dumps(out)
 
     def test_read_finding_file_bad_json_returns_empty(self, tmp_path: Path):
         from backend import handlers as h

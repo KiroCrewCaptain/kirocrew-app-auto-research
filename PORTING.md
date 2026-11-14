@@ -18,7 +18,7 @@ This repository was ported from Kiro Crew's built-in Research Lab at KiroCrew
   `test/test_owner_only_files.py`, `website/src/test/ResearchLabPage*.test.tsx`
   and `website/src/test/grillTreeModelCov80.test.ts`.
 
-It was then brought up to KiroCrew `main` `4e4bba39ea`: every change to those
+It was then brought up to KiroCrew `main` `46f62deab7`: every change to those
 paths since the snapshot is ported (see "Wheel-copy changes since the snapshot"
 below), and the backend uses the App Kit level-2 seams that apply to it.
 
@@ -29,8 +29,8 @@ change here.
 
 ## What carried over unchanged
 
-- `app.json` `name` (`auto-research`), `version` (`0.1.1`: the built-in's
-  `0.1.0` plus this repository's port release; Kiro Crew's pin row moves the
+- `app.json` `name` (`auto-research`), `version` (`0.1.2`: the built-in's
+  `0.1.0` plus this repository's port releases; Kiro Crew's pin row moves the
   built-in's manifest to the same version, since a first adoption pin's
   version must equal the built-in's), `author`,
   `permissions` (`api: ["/api/apps/auto-research"]`, nothing else), `platform`,
@@ -137,8 +137,10 @@ module loader and checks it).
    `data/`"): such a record keeps running the built-in, whose startup hook
    moves the database, and the next start adopts. That refusal replaces
    `test/test_auto_research_db_location.py::
-   test_auto_research_is_not_pinned_while_the_swap_can_retire_its_old_database`,
-   so the `auto-research` pin row lands only on a Kiro Crew `main` carrying it.
+   test_auto_research_is_not_pinned_while_the_swap_can_retire_its_old_database`
+   (now `test_the_adoption_swap_waits_while_the_old_database_is_beside_app_json`),
+   and it is on Kiro Crew `main`, so the `auto-research` pin row may land there;
+   it must not land on a release branch that lacks #36321.
 2. **Closed: core no longer imports the app.** KiroCrew #28338 replaced the
    monitor's import of `is_owned_research_slot` with core's app-keyed
    `stopped_loop_tombstone` seam (`kiro_crew.apps.seams`). This copy answers it
@@ -265,7 +267,7 @@ has no streaming call). Strings are `t()` over `ui/i18n/<locale>.json` for all
 | `test_auto_research_handlers_coverage_campaign_routes.py` | same | Ingestion tasks are drained from `handlers._bg_tasks`. |
 | `test_auto_research.py` | same | The grill's fake pool replaces `handlers._grill_llm_pool`. |
 | `test_windows_support.py` | same | The manifest is validated by the gateway's typed loader from the repository root; the built-in discovery assertion is gone. |
-| `test_auto_research_db_location.py` (KiroCrew #32650) | same | Paths come from the bound context's `data_dir`. Dropped: the pin-table check (`adoption-pins.json` is Kiro Crew's) and the startup-hook case (this copy's hooks run only while enabled; the first open copies instead, which a case of its own pins). |
+| `test_auto_research_db_location.py` (KiroCrew #32650) | same | Paths come from the bound context's `data_dir`. Dropped: the swap-refusal case (KiroCrew #36321; the adoption swap is Kiro Crew's) and the startup-hook case (this copy's hooks run only while enabled; the first open copies instead, which a case of its own pins). |
 | Research Lab cases of `test/test_artifacts_store_off_loop.py`, `test/test_owner_only_files.py` | `tests/test_artifacts_store_off_loop.py`, `tests/test_owner_only_files.py` | The owner-only cases also run with the gateway's helpers removed, against `_fs`'s fallbacks. |
 | (none) | `tests/test_host_seams.py`, `tests/test_no_host_imports.py`, `tests/test_manifest_contract.py` | Every fail-closed path above, the capability report, the lifecycle switch, the trust revocation, the stopped-loop seam registration, the pending reason, the shutdown suspension, `GET /models`; only the two shims reach `kiro_crew`, through `importlib`; manifest parity, the bundle's imports, the hooks loading through the gateway's module loader, no hardcoded model id, an adoptable tree. |
 | `website/src/apps/auto-research/*.test.tsx`, `website/src/test/ResearchLabPage*.test.tsx` | `ui/tests/` | Run by vitest with stand-ins for the host SDK (`ui/tests/stubs/`), no Redux store or router. The select cases drive the host `Select` stand-in (a native `<select>`) instead of the dashboard's Radix picker. |
@@ -279,7 +281,7 @@ Kiro Crew's own inventory) stay in Kiro Crew with a neutral fixture.
 
 ## Wheel-copy changes since the snapshot
 
-Every commit on KiroCrew `main` between `4bb268b4e9` and `4e4bba39ea` that
+Every commit on KiroCrew `main` between `4bb268b4e9` and `46f62deab7` that
 touched the built-in's backend, page, strings or tests, and where it landed here:
 
 | KiroCrew | Change | Here |
@@ -306,15 +308,18 @@ touched the built-in's backend, page, strings or tests, and where it landed here
 | #34815 | a person's revoke of the worker's trust parks the campaign instead of being granted back | `campaign/agent_mode.py` (`grant_worker_trust`, `worker_trust_revoked`, `release_worker_trust`), `campaign/watchdog.py`, `tests/test_auto_research_handlers_coverage.py` |
 | #30734 | export and add-to-knowledge failures are dismissible notices beside their buttons, not native alerts | `ui/src/ResearchLabPage.tsx`, `ui/tests/ResearchLabPageCoverage.test.tsx` |
 | #35029 | a worker grant also stores `approval_policy="auto"` on the slot's session | `campaign/agent_mode.py`, through `_host.effective_session_key` (no policy stored on a gateway without it), `tests/test_auto_research_handlers_coverage.py`, `tests/test_auto_research_worker_loop.py`, `tests/test_host_seams.py` |
+| #31863 | redaction fixtures use a synthetic GitHub token of the real shape, since the redactor keeps an AWS key ID visible as an identifier | `tests/test_auto_research.py`, `tests/test_auto_research_watchdog.py`, `tests/synthetic_credentials_helpers.py` (the host's `kiro_crew.testing.synthetic_credentials` when it has one, else the same construction, since the pinned test host predates it) |
+| #32503 | a malformed body answers 400 with `code: "invalid_json"` and a non-object body with `code: "body_not_object"`, the messages unchanged | `backend/handlers.py` (`_read_json_body`), `tests/test_auto_research_http.py` |
+| #36321 | the adoption swap holds a record with `campaigns.db` beside `app.json`; the test that refused the pin row is replaced by the swap's own | not ported: the swap is Kiro Crew's (gap 1) |
 
 ## What Kiro Crew keeps doing
 
 The release that adds adoption still ships the built-in. A user's built-in
 record moves onto this repository at the commit Kiro Crew pins, on the restart
 after the tree is fetched and verified; a record that cannot move keeps running
-the built-in copy, unchanged. For this app the pin also waits on the Kiro Crew
+the built-in copy, unchanged. For this app the pin also needs the Kiro Crew
 side of gap 1 (kirodotdev/KiroCrew#36321, the swap's refusal of an old
-`campaigns.db` beside `app.json`).
+`campaigns.db` beside `app.json`), which is on Kiro Crew `main`.
 
 ## Release handoff: one commit for both pins
 

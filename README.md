@@ -222,9 +222,9 @@ onto this source in place, at a commit pinned in that release. Until a user's
 Kiro Crew does that, it keeps running its built-in copy, and nothing here
 changes what they run. [PORTING.md](PORTING.md) lists every place this copy
 differs from the built-in and why, what Kiro Crew still has no public seam
-for, and what Kiro Crew must land with the pin (a refusal at the adoption swap
+for, and what Kiro Crew lands with the pin (a refusal at the adoption swap
 for a campaigns database still outside the folder an adoption keeps,
-kirodotdev/KiroCrew#36321).
+kirodotdev/KiroCrew#36321, now on Kiro Crew `main`).
 
 | Path | What it is |
 |---|---|
