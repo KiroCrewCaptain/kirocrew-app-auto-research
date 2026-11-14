@@ -18,7 +18,7 @@ This repository was ported from Kiro Crew's built-in Research Lab at KiroCrew
   `test/test_owner_only_files.py`, `website/src/test/ResearchLabPage*.test.tsx`
   and `website/src/test/grillTreeModelCov80.test.ts`.
 
-It was then brought up to KiroCrew `main` `46f62deab7`: every change to those
+It was then brought up to KiroCrew `main` `b81cf5a3ac`: every change to those
 paths since the snapshot is ported (see "Wheel-copy changes since the snapshot"
 below), and the backend uses the App Kit level-2 seams that apply to it.
 
@@ -281,7 +281,7 @@ Kiro Crew's own inventory) stay in Kiro Crew with a neutral fixture.
 
 ## Wheel-copy changes since the snapshot
 
-Every commit on KiroCrew `main` between `4bb268b4e9` and `46f62deab7` that
+Every commit on KiroCrew `main` between `4bb268b4e9` and `b81cf5a3ac` that
 touched the built-in's backend, page, strings or tests, and where it landed here:
 
 | KiroCrew | Change | Here |
@@ -311,6 +311,7 @@ touched the built-in's backend, page, strings or tests, and where it landed here
 | #31863 | redaction fixtures use a synthetic GitHub token of the real shape, since the redactor keeps an AWS key ID visible as an identifier | `tests/test_auto_research.py`, `tests/test_auto_research_watchdog.py`, `tests/synthetic_credentials_helpers.py` (the host's `kiro_crew.testing.synthetic_credentials` when it has one, else the same construction, since the pinned test host predates it) |
 | #32503 | a malformed body answers 400 with `code: "invalid_json"` and a non-object body with `code: "body_not_object"`, the messages unchanged | `backend/handlers.py` (`_read_json_body`), `tests/test_auto_research_http.py` |
 | #36321 | the adoption swap holds a record with `campaigns.db` beside `app.json`; the test that refused the pin row is replaced by the swap's own | not ported: the swap is Kiro Crew's (gap 1) |
+| #29423 | the host's structured credential detectors are on, and they keep an AWS key ID visible as an identifier, so the redaction fixtures of the HTTP tests use a synthetic GitHub token | `tests/test_auto_research_http.py` (the backend reaches the host's redactor through `ctx.scrub`, so it needs no change) |
 
 ## What Kiro Crew keeps doing
 
