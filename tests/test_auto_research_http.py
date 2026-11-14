@@ -73,6 +73,37 @@ class TestHTTPHandlers:
                 assert (await r.json())["can_start"] is True
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "body,code",
+        [("{", "invalid_json"), ("[1, 2]", "body_not_object"), ('"text"', "body_not_object")],
+        ids=["malformed", "list", "string"],
+    )
+    async def test_a_bad_body_is_a_coded_400(self, app, tmp_path: Path, body: str, code: str):
+        """A body that does not parse, or parses to a non-object, names its code
+        (KiroCrew #32503) beside the unchanged message."""
+        from aiohttp.test_utils import TestClient, TestServer
+
+        with (
+            patch("backend.handlers.DB_PATH", tmp_path / "t.db"),
+            patch("backend.handlers.RESEARCH_DIR", tmp_path / "r"),
+        ):
+            async with TestClient(TestServer(app)) as c:
+                for path in ("validate", "campaigns"):
+                    r = await c.post(
+                        f"/api/apps/auto-research/{path}",
+                        data=body,
+                        headers={"Content-Type": "application/json"},
+                    )
+                    assert r.status == 400
+                    payload = await r.json()
+                    assert payload["code"] == code
+                    assert payload["error"] == (
+                        "invalid JSON body"
+                        if code == "invalid_json"
+                        else "request body must be a JSON object"
+                    )
+
+    @pytest.mark.asyncio
     async def test_nudge_resumes_needs_input(self, app, tmp_path: Path):
         from aiohttp.test_utils import TestClient, TestServer
 
