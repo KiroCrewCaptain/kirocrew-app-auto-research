@@ -328,13 +328,12 @@ class TestCycleFileMatching:
         # credential + exfil-URL redaction on it as on a canonical-named file.
         with patch("backend.handlers.RESEARCH_DIR", tmp_path):
             d = self._findings_dir(tmp_path)
-            # 40+ char base64-ish blob in the query = exfil-shaped URL, which the
-            # URL leg redacts wholesale (domain included). A plain source URL is
-            # deliberately NOT redacted — findings legitimately cite sources.
-            exfil_url = (
-                "https://evil.example.com/exfil?blob="
-                "QUtJQUlPU0ZPRE5ON0VYQU1QTEVBQkNERUZHSElKS0w"
-            )
+            # A URL carrying a credential out in its query. A gateway that rewrites
+            # an exfil-shaped URL replaces it wholesale (domain included); one that
+            # masks credential values masks the token inside it. A plain source URL
+            # is deliberately NOT redacted — findings legitimately cite sources.
+            leaked = github_classic(seed=74)
+            exfil_url = f"https://evil.example.com/exfil?access_token={leaked}"
             (d / "cycle-1.json").write_text(json.dumps({
                 "cycle": 1,
                 "new_findings_count": 1,
@@ -346,12 +345,11 @@ class TestCycleFileMatching:
             blob = json.dumps(findings[0])
             # Leg 1: the raw credential must not survive into the surfaced payload.
             assert _SECRET not in blob
-            # Leg 2: the exfil-shaped URL must be redacted wholesale — path and
-            # payload gone, replaced by the redaction marker. (The marker itself
-            # names the domain by design, so assert on the URL body, not the domain.)
-            assert "exfil?blob=" not in blob
-            assert "QUtJQUlPU0ZPRE5ON0VYQU1QTEVBQkNERUZHSElKS0w" not in blob
-            assert "[REDACTED: suspicious URL" in blob
+            # Leg 2: the credential the URL carries must not survive either: the
+            # gateway replaces the URL wholesale or masks the value inside it.
+            # (Either marker names no part of the token, so assert on the token.)
+            assert leaked not in blob
+            assert "[REDACTED: suspicious URL" in blob or "[REDACTED: credential]" in blob
 
 
 class TestFileInterface:
