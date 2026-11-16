@@ -33,8 +33,9 @@ from backend import _compat, _host
 from backend import handlers as h
 from backend.campaign import agent_mode, storage, untrusted
 from harness import FakeCtx, make_ctx
+from synthetic_credentials_helpers import github_classic
 
-_SECRET = "token ghp_abcdefghijklmnopqrstuvwxyz0123456789AB here"
+_SECRET = f"token {github_classic(seed=73)} here"
 
 
 def _authed(method: str, path: str, *, app: web.Application | None = None) -> web.Request:
